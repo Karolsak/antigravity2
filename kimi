@@ -1,0 +1,506 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import threading
+import time
+
+
+class PMSMModel:
+    """Model PMSM z ograniczeniami dla stabilności numerycznej"""
+    def __init__(self, params):
+        self.Rs = params.get('Rs', 0.015)  # Ohm - niska rezystancja dla sprawności
+        self.Ld = params.get('Ld', 0.0005)  # H (0.5 mH)
+        self.Lq = params.get('Lq', 0.0008)  # H (0.8 mH)
+        self.psi_f = params.get('psi_f', 0.15)  # Wb
+        self.p = params.get('p', 4)  # pary biegunów
+        self.J = params.get('J', 0.05)  # kg·m² - moment bezwładności
+        self.B = params.get('B', 0.01)  # tarcie wizkotyczne
+        
+        # Ograniczenia bezpieczeństwa
+        self.max_current = 300  # A - maksymalny prąd fazowy
+        self.max_omega = 1000  # rad/s (~9550 rpm dla p=4)
+        
+    def derivatives(self, state, inputs):
+        """Stan: [id, iq, omega], Wejścia: [vd, vq, T_L]"""
+        id, iq, omega = state
+        vd, vq, T_L = inputs
+        
+        # Ograniczenia stanu (hard limits)
+        id = np.clip(id, -self.max_current, self.max_current)
+        iq = np.clip(iq, -self.max_current, self.max_current)
+        omega = np.clip(omega, -self.max_omega, self.max_omega)
+        
+        omega_e = omega * self.p  # prędkość elektryczna [rad/s]
+        
+        # Równania PMSM - układ d-q (Park)
+        # di_d/dt = (v_d - R_s*i_d + omega_e*L_q*i_q) / L_d
+        did = (vd - self.Rs*id + omega_e*self.Lq*iq) / self.Ld
+        
+        # di_q/dt = (v_q - R_s*i_q - omega_e*L_d*i_d - omega_e*psi_f) / L_q
+        diq = (vq - self.Rs*iq - omega_e*self.Ld*id - omega_e*self.psi_f) / self.Lq
+        
+        # Moment elektromagnetyczny: T_e = (3/2) * p * [psi_f*i_q + (L_d-L_q)*i_d*i_q]
+        Te = 1.5 * self.p * (self.psi_f*iq + (self.Ld - self.Lq)*id*iq)
+        
+        # Równanie mechaniczne: J*domega/dt = T_e - T_L - B*omega
+        domega = (Te - T_L - self.B*omega) / self.J
+        
+        # Ograniczenie pochodnych (anti-explosion)
+        did = np.clip(did, -1e6, 1e6)
+        diq = np.clip(diq, -1e6, 1e6)
+        domega = np.clip(domega, -500, 500)
+        
+        return np.array([did, diq, domega]), Te
+    
+    def get_phase_currents(self, id, iq, theta):
+        """Transformacja odwrotna Parka (dq -> abc)"""
+        theta_e = theta * self.p
+        ia = id * np.cos(theta_e) - iq * np.sin(theta_e)
+        ib = id * np.cos(theta_e - 2.094) - iq * np.sin(theta_e - 2.094)
+        ic = -(ia + ib)  # i_a + i_b + i_c = 0 dla układu bezprzewodowego
+        return ia, ib, ic
+
+
+class BatteryModel:
+    """Model baterii z zabezpieczeniem przed przeładowaniem"""
+    def __init__(self, params):
+        self.Q_nom = params.get('Q_nom', 60) * 3600  # kWh -> Coulombs (60Ah * 3600)
+        self.R0 = params.get('R0', 0.03)  # Ohm - rezystancja wewnętrzna
+        self.R1 = params.get('R1', 0.02)
+        self.C1 = params.get('C1', 1000)
+        self.R2 = params.get('R2', 0.05)
+        self.C2 = params.get('C2', 5000)
+        self.eta = params.get('eta', 0.99)  # sprawność Coulomba
+        
+    def ocv(self, soc):
+        """Napięcie jałowe - ograniczone do fizycznych wartości"""
+        soc = np.clip(soc, 0, 100)
+        return 3.2 + 0.8*(soc/100) + 0.1*np.sin((soc/100)*np.pi)
+    
+    def derivatives(self, state, I):
+        """Stan: [SOC, Vc1, Vc2]"""
+        soc, vc1, vc2 = state
+        
+        # Ograniczenia
+        soc = np.clip(soc, 0, 100)
+        I = np.clip(I, -300, 300)  # max 300A charge/discharge
+        
+        dvc1 = (I/self.C1) - (vc1/(self.R1*self.C1))
+        dvc2 = (I/self.C2) - (vc2/(self.R2*self.C2))
+        dsoc = -(I * self.eta) / (self.Q_nom) * 100  # % na sekundę
+        
+        V_bat = 400 * self.ocv(soc)/4.0 - I*self.R0 - vc1 - vc2  # skalowanie do 400V
+        V_bat = np.clip(V_bat, 250, 450)  # realistyczny zakres Li-ion
+        
+        return np.array([dsoc, dvc1, dvc2]), V_bat
+
+
+class EVDriveLabApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("EV Drive Lab - Stabilna wersja 2.1")
+        self.root.geometry("1400x900")
+        
+        # Style
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+        self.style.configure('TFrame', background='#f0f0f0')
+        self.style.configure('TLabel', font=('Segoe UI', 9))
+        self.style.configure('TButton', font=('Segoe UI', 9, 'bold'))
+        self.style.configure('Header.TLabel', font=('Segoe UI', 12, 'bold'))
+        
+        # Parametry - REALISTYCZNE DLA EV
+        self.motor_params = {
+            'Rs': 0.015,      # Ohm (15 mΩ)
+            'Ld': 0.0005,     # H (0.5 mH)
+            'Lq': 0.0008,     # H (0.8 mH - większa dla reluctance torque)
+            'psi_f': 0.15,    # Wb
+            'p': 4,           # 4 pary biegunów = 8 biegunów
+            'J': 0.05,        # kg·m² (koło zamachowe + wał)
+            'B': 0.01,        # N·m·s/rad (tarcie)
+            'P_nom': 150000,  # 150 kW
+            'T_nom': 350,     # Nm
+            'n_base': 3000    # rpm
+        }
+        
+        self.bat_params = {
+            'V_nom': 400,
+            'Q_nom': 60,      # kWh
+            'SOC_init': 100,
+            'R0': 0.03,       # 30 mΩ
+            'R1': 0.02,
+            'C1': 1000,
+            'R2': 0.05,
+            'C2': 5000
+        }
+        
+        self.veh_params = {
+            'mass': 1500,     # kg
+            'Cd': 0.28,       # współczynnik oporu
+            'Af': 2.2,        # m² - przekrój czołowy
+            'r': 0.315,       # m - promień koła
+            'rho': 1.225      # kg/m³ - gęstość powietrza
+        }
+        
+        self.motor = PMSMModel(self.motor_params)
+        self.battery = BatteryModel(self.bat_params)
+        
+        # Zmienne symulacji
+        self.sim_running = False
+        self.sim_thread = None
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+        # Notebook (tabs)
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Zakładki
+        self.tab_params = ttk.Frame(self.notebook)
+        self.tab_motor = ttk.Frame(self.notebook)
+        self.tab_sim = ttk.Frame(self.notebook)
+        self.tab_results = ttk.Frame(self.notebook)
+        
+        self.notebook.add(self.tab_params, text='⚙️ Parametry')
+        self.notebook.add(self.tab_motor, text='📈 Charakterystyki')
+        self.notebook.add(self.tab_sim, text='🔬 Symulacja')
+        self.notebook.add(self.tab_results, text='📊 Wyniki')
+        
+        self.setup_params_tab()
+        self.setup_motor_tab()
+        self.setup_sim_tab()
+        
+    def setup_params_tab(self):
+        # Parametry pojazdu
+        veh_frame = ttk.LabelFrame(self.tab_params, text='Parametry Pojazdu', padding=10)
+        veh_frame.pack(fill='x', padx=5, pady=5)
+        
+        ttk.Label(veh_frame, text='Masa [kg]:').grid(row=0, column=0, sticky='w')
+        self.veh_mass = ttk.Spinbox(veh_frame, from_=800, to=2500, increment=50)
+        self.veh_mass.set(1500)
+        self.veh_mass.grid(row=0, column=1, padx=5)
+        
+        ttk.Label(veh_frame, text='Cx:').grid(row=1, column=0, sticky='w')
+        self.veh_cd = ttk.Spinbox(veh_frame, from_=0.20, to=0.45, increment=0.01)
+        self.veh_cd.set(0.28)
+        self.veh_cd.grid(row=1, column=1, padx=5)
+        
+        # Parametry silnika
+        mot_frame = ttk.LabelFrame(self.tab_params, text='Parametry Silnika PMSM', padding=10)
+        mot_frame.pack(fill='x', padx=5, pady=5)
+        
+        params = [
+            ('Rs [mΩ]', 'mot_rs', 15, 1, 100),
+            ('Ld [mH]', 'mot_ld', 0.5, 0.1, 2.0),
+            ('Lq [mH]', 'mot_lq', 0.8, 0.1, 3.0),
+            ('Psi_f [Wb]', 'mot_psi', 0.15, 0.05, 0.5),
+            ('Pary biegunów', 'mot_p', 4, 2, 8),
+            ('J [kg·m²]', 'mot_j', 0.05, 0.01, 0.5)
+        ]
+        
+        self.motor_entries = {}
+        for i, (label, key, val, min_v, max_v) in enumerate(params):
+            ttk.Label(mot_frame, text=label).grid(row=i, column=0, sticky='w', pady=2)
+            entry = ttk.Spinbox(mot_frame, from_=min_v, to=max_v, increment=(max_v-min_v)/100)
+            entry.set(val)
+            entry.grid(row=i, column=1, padx=5, pady=2)
+            self.motor_entries[key] = entry
+        
+        ttk.Button(mot_frame, text='Zastosuj parametry', command=self.update_motor_params).grid(row=len(params), column=0, columnspan=2, pady=10)
+        
+    def setup_motor_tab(self):
+        # Wykresy charakterystyk
+        self.fig_motor = Figure(figsize=(10, 5), dpi=100)
+        
+        # Charakterystyka T-n
+        self.ax_torque = self.fig_motor.add_subplot(121)
+        self.ax_torque.set_title('Charakterystyka Moment-Prędkość')
+        self.ax_torque.set_xlabel('Prędkość [rpm]')
+        self.ax_torque.set_ylabel('Moment [Nm]', color='blue')
+        self.ax_torque.tick_params(axis='y', labelcolor='blue')
+        
+        self.ax_power = self.ax_torque.twinx()
+        self.ax_power.set_ylabel('Moc [kW]', color='red')
+        self.ax_power.tick_params(axis='y', labelcolor='red')
+        
+        # Mapa sprawności (placeholder)
+        self.ax_eff = self.fig_motor.add_subplot(122)
+        self.ax_eff.set_title('Mapa Sprawności [%]')
+        self.ax_eff.set_xlabel('Prędkość [rpm]')
+        self.ax_eff.set_ylabel('Moment [Nm]')
+        
+        canvas = FigureCanvasTkAgg(self.fig_motor, self.tab_motor)
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+        
+        self.canvas_motor = canvas
+        self.update_motor_curves()
+        
+    def setup_sim_tab(self):
+        # Panel kontrolny
+        ctrl_frame = ttk.Frame(self.tab_sim)
+        ctrl_frame.pack(fill='x', padx=5, pady=5)
+        
+        ttk.Button(ctrl_frame, text='▶ START', command=self.start_simulation).pack(side='left', padx=5)
+        ttk.Button(ctrl_frame, text='⏹ STOP', command=self.stop_simulation).pack(side='left', padx=5)
+        
+        ttk.Label(ctrl_frame, text='Krok [ms]:').pack(side='left', padx=(20, 5))
+        self.dt_var = tk.DoubleVar(value=0.1)  # 0.1ms - MAŁY krok dla stabilności!
+        ttk.Spinbox(ctrl_frame, from_=0.01, to=10, increment=0.1, textvariable=self.dt_var, width=6).pack(side='left')
+        
+        ttk.Label(ctrl_frame, text='Czas [s]:').pack(side='left', padx=(20, 5))
+        self.duration_var = tk.DoubleVar(value=5)
+        ttk.Spinbox(ctrl_frame, from_=1, to=30, textvariable=self.duration_var, width=6).pack(side='left')
+        
+        # Status
+        self.status_var = tk.StringVar(value='Gotowy')
+        ttk.Label(ctrl_frame, textvariable=self.status_var, foreground='blue').pack(side='right', padx=20)
+        
+        # Wykresy symulacji
+        self.fig_sim = Figure(figsize=(10, 8), dpi=100)
+        
+        self.ax_sim1 = self.fig_sim.add_subplot(311)
+        self.ax_sim1.set_ylabel('Prędkość [km/h]')
+        self.ax_sim1.grid(True)
+        
+        self.ax_sim2 = self.fig_sim.add_subplot(312)
+        self.ax_sim2.set_ylabel('Moment [Nm]')
+        self.ax_sim2.grid(True)
+        
+        self.ax_sim3 = self.fig_sim.add_subplot(313)
+        self.ax_sim3.set_ylabel('Prąd [A]')
+        self.ax_sim3.set_xlabel('Czas [s]')
+        self.ax_sim3.grid(True)
+        
+        canvas = FigureCanvasTkAgg(self.fig_sim, self.tab_sim)
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+        self.canvas_sim = canvas
+        
+    def update_motor_params(self):
+        """Aktualizacja parametrów silnika z UI"""
+        try:
+            self.motor_params['Rs'] = float(self.motor_entries['mot_rs'].get()) / 1000  # mΩ -> Ω
+            self.motor_params['Ld'] = float(self.motor_entries['mot_ld'].get()) / 1000   # mH -> H
+            self.motor_params['Lq'] = float(self.motor_entries['mot_lq'].get()) / 1000
+            self.motor_params['psi_f'] = float(self.motor_entries['mot_psi'].get())
+            self.motor_params['p'] = int(self.motor_entries['mot_p'].get())
+            self.motor_params['J'] = float(self.motor_entries['mot_j'].get())
+            
+            self.motor = PMSMModel(self.motor_params)
+            self.update_motor_curves()
+            messagebox.showinfo('OK', 'Parametry zastosowane')
+        except Exception as e:
+            messagebox.showerror('Błąd', str(e))
+            
+    def update_motor_curves(self):
+        """Obliczenie i wyświetlenie charakterystyk"""
+        n_max = 10000  # rpm
+        n_points = np.linspace(0, n_max, 200)
+        
+        torques = []
+        powers = []
+        
+        p = self.motor_params
+        T_nom = p['T_nom']
+        n_base = p['n_base']
+        P_nom = p['P_nom']
+        
+        for n in n_points:
+            if n <= n_base:
+                T = T_nom
+            else:
+                T = (P_nom * 1000) / (n * 2 * np.pi / 60)  # P = T * omega
+            if n > 8000:
+                T *= 0.8  # field weakening drop
+            
+            T = max(0, T)
+            torques.append(T)
+            powers.append(T * n / 9550)
+        
+        self.ax_torque.clear()
+        self.ax_power.clear()
+        
+        self.ax_torque.plot(n_points, torques, 'b-', linewidth=2, label='Moment')
+        self.ax_torque.set_ylabel('Moment [Nm]', color='blue')
+        self.ax_torque.tick_params(axis='y', labelcolor='blue')
+        self.ax_torque.set_xlabel('Prędkość [rpm]')
+        self.ax_torque.grid(True)
+        
+        self.ax_power.plot(n_points, powers, 'r-', linewidth=2, label='Moc')
+        self.ax_power.set_ylabel('Moc [kW]', color='red')
+        self.ax_power.tick_params(axis='y', labelcolor='red')
+        
+        self.ax_torque.set_title('Charakterystyka Moment-Prędkość')
+        self.canvas_motor.draw()
+        
+    def start_simulation(self):
+        if self.sim_running:
+            return
+            
+        self.sim_running = True
+        self.status_var.set('Symulacja w toku...')
+        
+        thread = threading.Thread(target=self.simulation_loop)
+        thread.daemon = True
+        thread.start()
+        
+    def stop_simulation(self):
+        self.sim_running = False
+        self.status_var.set('Zatrzymano')
+        
+    def simulation_loop(self):
+        """Główna pętla symulacji z zabezpieczeniami"""
+        dt = self.dt_var.get() / 1000.0  # ms -> s (0.1ms domyślnie!)
+        duration = self.duration_var.get()
+        
+        # Inicjalizacja stanów
+        # [id, iq, omega_mech, theta]
+        motor_state = np.array([0.0, 0.0, 0.0, 0.0])
+        bat_state = np.array([100.0, 0.0, 0.0])  # [SOC, Vc1, Vc2]
+        
+        # Dane do wykresów
+        times = []
+        speeds = []
+        torques = []
+        currents = []
+        
+        # Regulatory PI z anti-windup
+        error_int = 0.0
+        max_error_int = 1000.0  # ograniczenie calkowania błędu
+        
+        t = 0.0
+        step = 0
+        
+        try:
+            while self.sim_running and t < duration:
+                # Profil prędkości referencyjnej (0 -> 80 km/h -> stop)
+                if t < 2:
+                    v_ref = t * 40  # 0-80 km/h w 2s
+                elif t < 4:
+                    v_ref = 80
+                else:
+                    v_ref = max(0, 80 - (t-4)*40)  # hamowanie
+                
+                # Konwersja do rad/s (KLUCZOWE: v[m/s] / r[m] = omega[rad/s])
+                v_ms = v_ref / 3.6
+                omega_ref = v_ms / self.veh_params['r']
+                
+                # PI controller (speed) z ograniczeniem
+                omega_mech = motor_state[2]
+                error = omega_ref - omega_mech
+                error_int = np.clip(error_int + error * dt, -max_error_int, max_error_int)
+                
+                Kp = 50.0  # wzmocnienie proporcjonalne
+                Ki = 5.0   # wzmocnienie całkujące
+                
+                iq_ref = Kp * error + Ki * error_int
+                iq_ref = np.clip(iq_ref, -300, 300)  # ograniczenie prądu
+                
+                # Id = 0 control (MTPA - Maximum Torque Per Ampere)
+                id_ref = 0.0
+                
+                # Proste sterowanie prądem (tłumienie)
+                vd = 0.5 * (id_ref - motor_state[0])
+                vq = 0.5 * (iq_ref - motor_state[1])
+                
+                # Ograniczenie napięcia (modulacja)
+                v_max = self.bat_params['V_nom'] / np.sqrt(3)  # max napięcie fazowe
+                v_mag = np.sqrt(vd**2 + vq**2)
+                if v_mag > v_max:
+                    vd = vd * v_max / v_mag
+                    vq = vq * v_max / v_mag
+                
+                # Obliczenie obciążenia (aerodynamika + tarcie)
+                v_veh = omega_mech * self.veh_params['r']
+                F_aero = 0.5 * self.veh_params['rho'] * self.veh_params['Cd'] * self.veh_params['Af'] * v_veh**2
+                F_roll = 0.01 * self.veh_params['mass'] * 9.81
+                T_load = (F_aero + F_roll) * self.veh_params['r']
+                
+                # RK4 integration with safety checks
+                def motor_ode(y):
+                    dydt, _ = self.motor.derivatives(y[:3], [vd, vq, T_load])
+                    # dtheta/dt = omega
+                    return np.array([dydt[0], dydt[1], dydt[2], y[2]])
+                
+                # RK4 step
+                k1 = motor_ode(motor_state)
+                k2 = motor_ode(motor_state + 0.5*dt*k1)
+                k3 = motor_ode(motor_state + 0.5*dt*k2)
+                k4 = motor_ode(motor_state + dt*k3)
+                
+                motor_new = motor_state + (dt/6.0) * (k1 + 2*k2 + 2*k3 + k4)
+                
+                # Hard limits po integracji
+                motor_new[0] = np.clip(motor_new[0], -300, 300)  # id
+                motor_new[1] = np.clip(motor_new[1], -300, 300)  # iq
+                motor_new[2] = np.clip(motor_new[2], -1000, 1000) # omega (rad/s)
+                
+                # Sprawdzenie NaN/Inf
+                if np.any(np.isnan(motor_new)) or np.any(np.isinf(motor_new)):
+                    raise ValueError("Numerical instability detected!")
+                
+                motor_state = motor_new
+                
+                # Model baterii (uproszczony - tylko SOC)
+                Te = 1.5 * self.motor_params['p'] * self.motor_params['psi_f'] * motor_state[1]
+                P_mech = Te * motor_state[2]
+                I_bat = P_mech / (self.bat_params['V_nom'] * 0.95)  # przybliżony prąd
+                I_bat = np.clip(I_bat, -300, 300)
+                
+                dsoc = -(I_bat * 0.99) / (self.bat_params['Q_nom'] * 3600) * 100 * dt
+                bat_state[0] = np.clip(bat_state[0] + dsoc, 0, 100)
+                
+                # Zapisywanie danych (co 10 kroków dla wydajności)
+                if step % 10 == 0:
+                    times.append(t)
+                    speeds.append(motor_state[2] * self.veh_params['r'] * 3.6)  # km/h
+                    torques.append(Te)
+                    currents.append(np.sqrt(motor_state[0]**2 + motor_state[1]**2))
+                    
+                    # Aktualizacja UI (co 100 kroków aby nie zamulać)
+                    if step % 100 == 0 and len(times) > 1:
+                        self.root.after(0, self.update_sim_plots, times[:], speeds[:], torques[:], currents[:])
+                
+                t += dt
+                step += 1
+                
+                # Małe opóźnienie aby nie blokować UI (symulacja wolniejsza niż rzeczywistość dla widoczności)
+                if step % 100 == 0:
+                    time.sleep(0.001)
+                    
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror('Błąd symulacji', f'Wystąpił błąd numeryczny:\n{str(e)}\n\nSprawdź parametry silnika i zmniejsz krok czasowy.'))
+            
+        finally:
+            self.sim_running = False
+            self.root.after(0, lambda: self.status_var.set('Zakończono'))
+            
+    def update_sim_plots(self, times, speeds, torques, currents):
+        """Aktualizacja wykresów"""
+        self.ax_sim1.clear()
+        self.ax_sim1.plot(times, speeds, 'b-', linewidth=2)
+        self.ax_sim1.set_ylabel('Prędkość [km/h]')
+        self.ax_sim1.grid(True)
+        
+        self.ax_sim2.clear()
+        self.ax_sim2.plot(times, torques, 'r-', linewidth=2)
+        self.ax_sim2.set_ylabel('Moment [Nm]')
+        self.ax_sim2.grid(True)
+        
+        self.ax_sim3.clear()
+        self.ax_sim3.plot(times, currents, 'g-', linewidth=2)
+        self.ax_sim3.set_ylabel('Prąd [A]')
+        self.ax_sim3.set_xlabel('Czas [s]')
+        self.ax_sim3.grid(True)
+        
+        self.fig_sim.tight_layout()
+        self.canvas_sim.draw()
+
+
+if __name__ == '__main__':
+    root = tk.Tk()
+    app = EVDriveLabApp(root)
+    root.mainloop()
