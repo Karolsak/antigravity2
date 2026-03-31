@@ -696,7 +696,9 @@ function renderFaultChart() {
     let iFault = 0;
     if (ftype === 'armature') {
       // short-circuit: i(t) = Va/Ra*(1-e^-t/tau) minus back-EMF contribution
-      const Eback = calcMotor({...P, Nop: P.Nr}).Eback_rated * Math.exp(-t / 0.3);
+      // mechanical time constant τ_m = J·Ra/(Kφ²) ≈ 0.3 s for this motor
+      const tau_m = P.J * P.Ra / Math.pow(calcMotor(P).Kphi, 2);
+      const Eback = calcMotor({...P, Nop: P.Nr}).Eback_rated * Math.exp(-t / tau_m);
       iFault = (Va - Eback * Math.exp(-t/tau)) / P.Ra * (1 - Math.exp(-t/tau));
     } else if (ftype === 'supply') {
       // supply removed: free-decay of armature current
@@ -942,8 +944,11 @@ function renderThermalChart() {
   document.getElementById('th_r2_val').textContent = Rth2.toFixed(2);
 
   // Copper losses + iron losses
-  const P_cu   = P.Ir * P.Ir * P.Ra * lf*lf;        // I²R copper loss
-  const P_iron = P.Vs * 0.005 * 46;                  // ~5% of power for iron losses
+  // Iron loss ≈ 0.5% of Vs × rated kW (P_Vs * iron_loss_pct * rated_kW_approx)
+  const IRON_LOSS_PCT = 0.005;    // 0.5% iron loss coefficient (typical for DC machines)
+  const RATED_KW_APPROX = 46;     // ≈ Vs×Ir/1000 = 230×200/1000 = 46 kW (rated output)
+  const P_cu   = P.Ir * P.Ir * P.Ra * lf*lf;                   // I²R copper loss (W)
+  const P_iron = P.Vs * IRON_LOSS_PCT * RATED_KW_APPROX;       // ~5% of rated power (W)
   const P_loss = P_cu + P_iron;
   const Cth1 = 500, Cth2 = 5000;                     // thermal capacitances (J/K)
   const dt = 5, T_end = 3600, N = Math.floor(T_end/dt);
@@ -1039,11 +1044,16 @@ function renderEconChart() {
   });
 
   const fullCost  = kW / eff_base * hrs * price;
-  const regen_pct = 0.08; // regenerative braking saves ~8%
-  const regen_save = fullCost * regen_pct;
-  const drive_cost = kW * 80;
+  // Regenerative braking typically saves 5–15%; 8% is a conservative midpoint (IEA/EPRI estimates)
+  const REGEN_SAVINGS_PCT = 0.08;
+  // Chopper drive unit cost estimate: ~$80/kW installed (ABB/Siemens indicative 2024 pricing)
+  const DRIVE_COST_PER_KW = 80;   // USD per kW
+  // Grid carbon intensity: 0.5 kg CO₂/kWh is the global average (IEA 2023)
+  const CO2_KG_PER_KWH = 0.5;
+  const regen_save = fullCost * REGEN_SAVINGS_PCT;
+  const drive_cost = kW * DRIVE_COST_PER_KW;
   const payback    = regen_save > 0 ? drive_cost / regen_save : Infinity;
-  const co2        = kW / eff_base * hrs * 0.5;
+  const co2        = kW / eff_base * hrs * CO2_KG_PER_KWH;
 
   document.getElementById('econ_summary').innerHTML = [
     ['Annual Energy Cost',        '$' + fullCost.toFixed(0)],
