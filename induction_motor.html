@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3-Phase Induction Motor Analysis</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { background:#0f172a; color:#e2e8f0; font-family:'Segoe UI',sans-serif; }
+  .tab-btn { transition:all .2s; }
+  .tab-btn.active { background:#0ea5e9; color:#fff; }
+  .card { background:#1e293b; border:1px solid #334155; border-radius:.75rem; }
+  input[type=range] { accent-color:#0ea5e9; width:100%; }
+  .result-val { color:#38bdf8; font-weight:700; }
+  .formula { background:#0f172a; border-left:3px solid #0ea5e9; padding:.5rem 1rem; margin:.5rem 0; font-family:monospace; font-size:.85rem; border-radius:0 .5rem .5rem 0; }
+  .answer { background:#052e16; border:1px solid #16a34a; border-radius:.5rem; padding:.75rem; margin:.5rem 0; }
+  canvas { max-width:100%; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  select { background:#1e293b; border:1px solid #475569; border-radius:.375rem; color:#e2e8f0; padding:.25rem .5rem; }
+  .limit-b { color:#fbbf24; } .limit-f { color:#f97316; } .limit-h { color:#ef4444; }
+</style>
+</head>
+<body class="min-h-screen p-4">
+
+<div class="max-w-7xl mx-auto">
+  <h1 class="text-2xl font-bold text-center mb-2 text-sky-400">⚡ 3-Phase Induction Motor — Complete Engineering Analysis</h1>
+  <p class="text-center text-slate-400 text-sm mb-4">400 V | 50 Hz | 4-pole | R₂=0.1Ω | X₂=1Ω | N₁/N₂=4</p>
+
+  <!-- Tab buttons -->
+  <div class="flex flex-wrap gap-1 mb-4">
+    <button class="tab-btn active px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(0)">📚 Theory</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(1)">⚙️ Parameters</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(2)">📈 Torque-Speed</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(3)">⚡ Fault Current</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(4)">🛡️ Protection</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(5)">🎛️ Speed Ctrl</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(6)">🌡️ Thermal</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(7)">💰 Economic</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(8)">〰️ Harmonics</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(9)">📊 Summary</button>
+  </div>
+
+  <!-- TAB 0: Theory & Solution -->
+  <div id="tab0" class="tab-content active">
+    <div class="card p-4 mb-4">
+      <h2 class="text-lg font-bold text-sky-300 mb-2">Problem Statement</h2>
+      <p class="text-slate-300 text-sm leading-relaxed">A 3-phase induction motor has a <strong class="text-white">4-pole, star-connected</strong> stator winding. The motor runs on a line voltage of <strong class="text-white">400 V, 50 Hz</strong> supply. The motor resistance and standstill reactance per phase are <strong class="text-white">0.1 Ω and 1 Ω</strong> respectively. The ratio of stator to rotor turns is <strong class="text-white">4</strong>. Calculate: (i) Starting torque; (ii) Full load torque at slip = 4%; (iii) Slip at maximum torque and rotor speed; (iv) Maximum torque; (v) Ratio T_st/T_max and T_fl/T_max; (vi) Additional rotor resistance for max torque at start.</p>
+    </div>
+    <div class="card p-4 mb-4">
+      <h2 class="text-lg font-bold text-sky-300 mb-3">Given Data &amp; Equivalent Circuit</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">V_L</span><br><span class="result-val">400 V</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">f</span><br><span class="result-val">50 Hz</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">Poles (p)</span><br><span class="result-val">4</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">Connection</span><br><span class="result-val">Star (Y)</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">V₁ = V_L/√3</span><br><span class="result-val">230.94 V</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">R₂ (ref. stator)</span><br><span class="result-val">0.1 Ω</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">X₂ (ref. stator)</span><br><span class="result-val">1.0 Ω</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">N₁/N₂</span><br><span class="result-val">4</span></div>
+      </div>
+      <div class="mt-3 text-sm">
+        <p class="text-slate-400">Synchronous speed: N_s = 120f/p = <span class="result-val">1500 rpm</span> → ω_s = 2π×1500/60 = <span class="result-val">157.08 rad/s</span></p>
+        <p class="text-slate-400 mt-1">Torque formula (simplified equiv. circuit, stator Z neglected):</p>
+        <div class="formula">T = (3/ω_s) × V₁² × (R₂/s) / [(R₂/s)² + X₂²]</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">(i) Starting Torque (s = 1)</h3>
+        <div class="formula">T_st = (3/ω_s) × V₁² × R₂ / (R₂² + X₂²)</div>
+        <div class="formula">T_st = (3/157.08) × (230.94)² × 0.1 / (0.01 + 1)</div>
+        <div class="formula">T_st = 0.01909 × 53333 × 0.1 / 1.01</div>
+        <div class="answer">✅ T_st = <span class="result-val text-lg">100.85 N·m</span></div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">(ii) Full Load Torque (s = 0.04)</h3>
+        <div class="formula">R₂/s = 0.1/0.04 = 2.5 Ω</div>
+        <div class="formula">T_fl = (3/157.08) × (230.94)² × 2.5 / (2.5² + 1²)</div>
+        <div class="formula">T_fl = 0.01909 × 53333 × 2.5 / 7.25</div>
+        <div class="answer">✅ T_fl = <span class="result-val text-lg">351.24 N·m</span></div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">(iii) Slip &amp; Speed at Max Torque</h3>
+        <div class="formula">s_m = R₂/X₂ = 0.1/1.0 = 0.1 (10%)</div>
+        <div class="formula">N_maxT = N_s×(1 - s_m) = 1500×0.9</div>
+        <div class="answer">✅ s_m = <span class="result-val">0.10 (10%)</span> | N = <span class="result-val">1350 rpm</span></div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">(iv) Maximum Torque</h3>
+        <div class="formula">T_max = (3/ω_s) × V₁² / (2×X₂)</div>
+        <div class="formula">T_max = (3/157.08) × (230.94)² / (2×1.0)</div>
+        <div class="answer">✅ T_max = <span class="result-val text-lg">509.30 N·m</span></div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">(v) Torque Ratios</h3>
+        <div class="formula">T_st/T_max = 100.85/509.30 = 0.198</div>
+        <div class="formula">T_fl/T_max = 351.24/509.30 = 0.690</div>
+        <div class="answer">✅ T_st/T_max = <span class="result-val">0.198 (19.8%)</span><br>✅ T_fl/T_max = <span class="result-val">0.690 (69.0%)</span></div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">(vi) Additional Rotor Resistance</h3>
+        <div class="formula">For max torque at start: R₂_total = X₂ = 1.0 Ω (stator-referred)</div>
+        <div class="formula">R_add (stator-referred) = X₂ - R₂ = 1.0 - 0.1 = 0.9 Ω</div>
+        <div class="formula">R_add (actual rotor) = 0.9/(N₁/N₂)² = 0.9/16</div>
+        <div class="answer">✅ R_add = <span class="result-val text-lg">0.05625 Ω</span> per phase (actual rotor)</div>
+      </div>
+    </div>
+
+    <div class="card p-4 mt-4">
+      <h3 class="font-bold text-sky-300 mb-2">Live Slip → Torque Calculator</h3>
+      <div class="flex items-center gap-4">
+        <label class="text-sm text-slate-400 w-32">Slip s = <span id="t0_slip_val">0.04</span></label>
+        <input type="range" id="t0_slip" min="0.001" max="1" step="0.001" value="0.04" class="flex-1" oninput="calcLiveTorque()">
+        <span class="text-sky-400 font-bold w-40" id="t0_torque_result">T = 351.24 N·m</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 1: Parameters -->
+  <div id="tab1" class="tab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h2 class="text-lg font-bold text-sky-300 mb-3">Input Parameters</h2>
+        <div id="param_sliders" class="space-y-3"></div>
+      </div>
+      <div class="card p-4">
+        <h2 class="text-lg font-bold text-sky-300 mb-3">Calculated Results</h2>
+        <div id="param_results" class="space-y-2 text-sm"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Torque-Speed -->
+  <div id="tab2" class="tab-content">
+    <div class="card p-4">
+      <div class="flex flex-wrap gap-2 mb-3">
+        <h2 class="text-lg font-bold text-sky-300 flex-1">Torque-Speed Characteristics</h2>
+        <button onclick="renderTorqueChart()" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 rounded text-xs">▶ Refresh</button>
+      </div>
+      <canvas id="torqueChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB 3: Fault Current -->
+  <div id="tab3" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-lg font-bold text-sky-300 mb-3">Fault / Starting Current Transient</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">Voltage Multiplier: <span id="fc_vmul_val">1.0</span></label><input type="range" id="fc_vmul" min="0.5" max="1.5" step="0.05" value="1.0" oninput="renderFaultChart()"></div>
+        <div><label class="text-slate-400">Phase angle φ (°): <span id="fc_phi_val">0</span></label><input type="range" id="fc_phi" min="0" max="90" step="5" value="0" oninput="renderFaultChart()"></div>
+        <div id="fault_stats" class="bg-slate-700 rounded p-2 text-xs"></div>
+      </div>
+      <canvas id="faultChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB 4: Protection -->
+  <div id="tab4" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-lg font-bold text-sky-300 mb-3">Protection Coordination — IEC Relay Curves</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">TMS: <span id="prot_tms_val">0.3</span></label><input type="range" id="prot_tms" min="0.05" max="1.0" step="0.05" value="0.3" oninput="renderProtChart()"></div>
+        <div><label class="text-slate-400">Is (×In): <span id="prot_is_val">1.0</span></label><input type="range" id="prot_is" min="0.5" max="3.0" step="0.1" value="1.0" oninput="renderProtChart()"></div>
+        <div><label class="text-slate-400">In (A): <span id="prot_in_val">50</span></label><input type="range" id="prot_in" min="10" max="200" step="10" value="50" oninput="renderProtChart()"></div>
+        <div class="bg-slate-700 rounded p-2 text-xs">
+          <p class="text-slate-400">Normal Inv: k=0.14, α=0.02</p>
+          <p class="text-slate-400">Very Inv: k=13.5, α=1</p>
+          <p class="text-slate-400">Ext. Inv: k=80, α=2</p>
+        </div>
+      </div>
+      <canvas id="protChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB 5: Speed Controller -->
+  <div id="tab5" class="tab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h2 class="text-lg font-bold text-sky-300 mb-3">PID Speed Controller</h2>
+        <div class="space-y-2 text-sm mb-3">
+          <div><label class="text-slate-400">Kp: <span id="pid_kp_val">5.0</span></label><input type="range" id="pid_kp" min="0.1" max="50" step="0.1" value="5.0" oninput="renderPIDChart()"></div>
+          <div><label class="text-slate-400">Ki: <span id="pid_ki_val">0.5</span></label><input type="range" id="pid_ki" min="0.001" max="10" step="0.01" value="0.5" oninput="renderPIDChart()"></div>
+          <div><label class="text-slate-400">Kd: <span id="pid_kd_val">0.1</span></label><input type="range" id="pid_kd" min="0.001" max="5" step="0.001" value="0.1" oninput="renderPIDChart()"></div>
+        </div>
+        <canvas id="pidChart" height="160"></canvas>
+      </div>
+      <div class="card p-4">
+        <h2 class="text-lg font-bold text-sky-300 mb-3">Fuzzy Logic Controller</h2>
+        <p class="text-xs text-slate-400 mb-2">Mamdani FLC with 5 MFs per input (NB, NM, Z, PM, PB)</p>
+        <canvas id="fuzzyMFChart" height="80"></canvas>
+        <canvas id="fuzzyChart" height="80" class="mt-2"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: Thermal -->
+  <div id="tab6" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-lg font-bold text-sky-300 mb-3">Thermal Analysis — Lumped RC Model</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">Ambient T (°C): <span id="th_ta_val">25</span></label><input type="range" id="th_ta" min="0" max="60" step="1" value="25" oninput="renderThermalChart()"></div>
+        <div><label class="text-slate-400">Load factor: <span id="th_lf_val">1.0</span></label><input type="range" id="th_lf" min="0.1" max="2.0" step="0.05" value="1.0" oninput="renderThermalChart()"></div>
+        <div><label class="text-slate-400">Rth1 (K/W): <span id="th_r1_val">0.1</span></label><input type="range" id="th_r1" min="0.01" max="0.5" step="0.01" value="0.1" oninput="renderThermalChart()"></div>
+        <div><label class="text-slate-400">Rth2 (K/W): <span id="th_r2_val">0.2</span></label><input type="range" id="th_r2" min="0.05" max="1.0" step="0.05" value="0.2" oninput="renderThermalChart()"></div>
+      </div>
+      <canvas id="thermalChart" height="120"></canvas>
+      <p class="text-xs text-slate-400 mt-2">
+        <span class="limit-b">■ Class B: 130°C</span> &nbsp;
+        <span class="limit-f">■ Class F: 155°C</span> &nbsp;
+        <span class="limit-h">■ Class H: 180°C</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- TAB 7: Economic -->
+  <div id="tab7" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-lg font-bold text-sky-300 mb-3">Economic Analysis</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">Price ($/kWh): <span id="eco_price_val">0.12</span></label><input type="range" id="eco_price" min="0.05" max="0.50" step="0.01" value="0.12" oninput="renderEconChart()"></div>
+        <div><label class="text-slate-400">Hours/year: <span id="eco_hrs_val">6000</span></label><input type="range" id="eco_hrs" min="1000" max="8760" step="100" value="6000" oninput="renderEconChart()"></div>
+        <div><label class="text-slate-400">Motor kW: <span id="eco_kw_val">75</span></label><input type="range" id="eco_kw" min="5" max="500" step="5" value="75" oninput="renderEconChart()"></div>
+        <div><label class="text-slate-400">Efficiency (%): <span id="eco_eff_val">92</span></label><input type="range" id="eco_eff" min="75" max="98" step="0.5" value="92" oninput="renderEconChart()"></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <canvas id="econEffChart" height="140"></canvas>
+        <canvas id="econCostChart" height="140"></canvas>
+      </div>
+      <div id="econ_summary" class="mt-3 text-sm grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+    </div>
+  </div>
+
+  <!-- TAB 8: Harmonics -->
+  <div id="tab8" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-lg font-bold text-sky-300 mb-3">Harmonic Analysis &amp; Power Quality</h2>
+      <div class="grid grid-cols-3 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">5th harmonic (%): <span id="h5_val">20</span></label><input type="range" id="h5" min="0" max="50" step="1" value="20" oninput="renderHarmonicCharts()"></div>
+        <div><label class="text-slate-400">7th harmonic (%): <span id="h7_val">14</span></label><input type="range" id="h7" min="0" max="40" step="1" value="14" oninput="renderHarmonicCharts()"></div>
+        <div><label class="text-slate-400">11th harmonic (%): <span id="h11_val">9</span></label><input type="range" id="h11" min="0" max="30" step="1" value="9" oninput="renderHarmonicCharts()"></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <canvas id="harmonicWave" height="140"></canvas>
+        <canvas id="harmonicSpectrum" height="140"></canvas>
+      </div>
+      <div id="harmonic_stats" class="mt-3 text-sm grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+    </div>
+  </div>
+
+  <!-- TAB 9: Summary -->
+  <div id="tab9" class="tab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h2 class="text-lg font-bold text-sky-300 mb-3">Summary Results</h2>
+        <div class="space-y-2 text-sm" id="summary_cards"></div>
+        <button onclick="printSummary()" class="mt-3 px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded text-sm">🖨️ Print Summary</button>
+      </div>
+      <div class="card p-4">
+        <h2 class="text-lg font-bold text-sky-300 mb-3">Performance Radar Chart</h2>
+        <canvas id="radarChart" height="250"></canvas>
+      </div>
+    </div>
+  </div>
+</div><!-- end container -->
+
+<script>
+// ─── Global state ───────────────────────────────────────────────────────────
+const params = { VL:400, R2:0.1, X2:1.0, turns:4, freq:50, poles:4, slip_fl:0.04 };
+const charts = {};
+
+// ─── Motor Calculations ──────────────────────────────────────────────────────
+function calc(p) {
+  const V1 = p.VL / Math.sqrt(3);
+  const Ns = 120 * p.freq / p.poles;
+  const ws = 2 * Math.PI * Ns / 60;
+  const K = 3 / ws * V1 * V1;
+  const torque = (s) => s < 1e-6 ? 0 : K * (p.R2/s) / ((p.R2/s)**2 + p.X2**2);
+  const T_st = torque(1);
+  const T_fl = torque(p.slip_fl);
+  const s_m = p.R2 / p.X2;
+  const T_max = K / (2 * p.X2);
+  const N_maxT = Ns * (1 - s_m);
+  const R_add_stator = p.X2 - p.R2;
+  const R_add_rotor = R_add_stator / (p.turns ** 2);
+  return { V1, Ns, ws, T_st, T_fl, s_m, T_max, N_maxT, R_add_stator, R_add_rotor,
+           ratio_st_max: T_st/T_max, ratio_fl_max: T_fl/T_max, torque };
+}
+
+// ─── Tab switching ───────────────────────────────────────────────────────────
+const tabRenders = [null, renderParamTab, renderTorqueChart, renderFaultChart,
+                    renderProtChart, renderControllerCharts, renderThermalChart,
+                    renderEconChart, renderHarmonicCharts, renderSummaryTab];
+
+function switchTab(n) {
+  document.querySelectorAll('.tab-content').forEach((el,i) => el.classList.toggle('active', i===n));
+  document.querySelectorAll('.tab-btn').forEach((el,i) => el.classList.toggle('active', i===n));
+  if (tabRenders[n]) tabRenders[n]();
+}
+
+// ─── Tab 0 live calculator ───────────────────────────────────────────────────
+function calcLiveTorque() {
+  const s = parseFloat(document.getElementById('t0_slip').value);
+  document.getElementById('t0_slip_val').textContent = s.toFixed(3);
+  const r = calc(params);
+  const T = r.torque(s);
+  document.getElementById('t0_torque_result').textContent = `T = ${T.toFixed(2)} N·m`;
+}
+
+// ─── Tab 1: Parameters ────────────────────────────────────────────────────────
+function renderParamTab() {
+  const defs = [
+    {id:'VL', label:'Line Voltage V_L (V)', min:100, max:600, step:10, val:params.VL},
+    {id:'R2', label:'Rotor Resistance R₂ (Ω)', min:0.01, max:2, step:0.01, val:params.R2},
+    {id:'X2', label:'Standstill Reactance X₂ (Ω)', min:0.1, max:5, step:0.1, val:params.X2},
+    {id:'turns', label:'Turns Ratio N₁/N₂', min:1, max:10, step:0.5, val:params.turns},
+    {id:'freq', label:'Frequency (Hz)', min:25, max:100, step:5, val:params.freq},
+    {id:'slip_fl', label:'Full-load Slip', min:0.01, max:0.15, step:0.005, val:params.slip_fl},
+  ];
+  const cont = document.getElementById('param_sliders');
+  cont.innerHTML = '';
+  defs.forEach(d => {
+    const div = document.createElement('div');
+    div.innerHTML = `<label class="text-slate-400 text-xs">${d.label}: <span id="ps_${d.id}" class="text-white">${d.val}</span></label>
+      <div class="flex gap-2 items-center">
+        <input type="range" id="pr_${d.id}" min="${d.min}" max="${d.max}" step="${d.step}" value="${d.val}" class="flex-1" oninput="updateParam('${d.id}', this.value)">
+        <input type="number" id="pn_${d.id}" value="${d.val}" class="w-20 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white" onchange="updateParam('${d.id}', this.value)">
+      </div>`;
+    cont.appendChild(div);
+    // poles select
+    if (d.id === 'slip_fl') {
+      const pd = document.createElement('div');
+      pd.innerHTML = `<label class="text-slate-400 text-xs">Poles: </label>
+        <select id="poles_sel" onchange="updateParam('poles', this.value)" class="ml-2">
+          <option value="2" ${params.poles===2?'selected':''}>2</option>
+          <option value="4" ${params.poles===4?'selected':''}>4</option>
+          <option value="6" ${params.poles===6?'selected':''}>6</option>
+          <option value="8" ${params.poles===8?'selected':''}>8</option>
+        </select>`;
+      cont.appendChild(pd);
+    }
+  });
+  updateParamResults();
+}
+
+function updateParam(id, val) {
+  params[id] = parseFloat(val);
+  const sp = document.getElementById('ps_'+id);
+  if (sp) sp.textContent = params[id];
+  const pr = document.getElementById('pr_'+id);
+  if (pr) pr.value = params[id];
+  const pn = document.getElementById('pn_'+id);
+  if (pn) pn.value = params[id];
+  updateParamResults();
+}
+
+function updateParamResults() {
+  const r = calc(params);
+  const items = [
+    ['Phase Voltage V₁', r.V1.toFixed(2)+' V'],
+    ['Sync Speed Ns', r.Ns.toFixed(0)+' rpm'],
+    ['ω_s', r.ws.toFixed(2)+' rad/s'],
+    ['(i) Starting Torque T_st', r.T_st.toFixed(2)+' N·m'],
+    ['(ii) Full Load Torque T_fl', r.T_fl.toFixed(2)+' N·m'],
+    ['(iii) Slip @ Max Torque s_m', (r.s_m*100).toFixed(1)+'%'],
+    ['(iii) Speed @ Max Torque', r.N_maxT.toFixed(0)+' rpm'],
+    ['(iv) Maximum Torque T_max', r.T_max.toFixed(2)+' N·m'],
+    ['(v) T_st / T_max', r.ratio_st_max.toFixed(4)],
+    ['(v) T_fl / T_max', r.ratio_fl_max.toFixed(4)],
+    ['(vi) R_add (stator-referred)', r.R_add_stator.toFixed(4)+' Ω'],
+    ['(vi) R_add (actual rotor)', r.R_add_rotor.toFixed(5)+' Ω'],
+  ];
+  const cont = document.getElementById('param_results');
+  cont.innerHTML = items.map(([k,v])=>`<div class="flex justify-between bg-slate-700 rounded px-3 py-1"><span class="text-slate-400">${k}</span><span class="result-val">${v}</span></div>`).join('');
+}
+
+// ─── Tab 2: Torque-Speed Chart ────────────────────────────────────────────────
+function renderTorqueChart() {
+  const r = calc(params);
+  const steps = 300;
+  const ss = Array.from({length:steps}, (_,i) => (i+1)/steps);
+  const speeds = ss.map(s => r.Ns*(1-s));
+  const R2vals = [params.R2, params.R2*2, params.R2*5, params.R2*10];
+  const colors = ['#38bdf8','#4ade80','#fb923c','#f472b6'];
+  const datasets = R2vals.map((r2,i) => {
+    const K = 3/r.ws * r.V1**2;
+    return {
+      label:`R₂=${r2.toFixed(3)}Ω`,
+      data: ss.map((s,j) => ({x: speeds[j], y: K*(r2/s)/((r2/s)**2+params.X2**2)})),
+      borderColor: colors[i], backgroundColor:'transparent', borderWidth:2, pointRadius:0,
+    };
+  });
+  // Annotation points for first curve
+  const K0 = 3/r.ws * r.V1**2;
+  datasets.push({
+    label:'Key Points',
+    data:[
+      {x:r.Ns, y:r.T_st},
+      {x:r.Ns*(1-params.slip_fl), y:r.T_fl},
+      {x:r.N_maxT, y:r.T_max}
+    ],
+    borderColor:'#fbbf24', backgroundColor:'#fbbf24', pointRadius:6, showLine:false,
+  });
+  destroyChart('torqueChart');
+  charts.torqueChart = new Chart(document.getElementById('torqueChart').getContext('2d'), {
+    type:'scatter',
+    data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true,text:'Rotor Speed (rpm)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'},min:0,max:r.Ns*1.05},
+        y:{title:{display:true,text:'Torque (N·m)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'},min:0},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}},tooltip:{callbacks:{label:p=>`(${p.parsed.x.toFixed(0)} rpm, ${p.parsed.y.toFixed(1)} N·m)`}}},
+    }
+  });
+}
+
+// ─── Tab 3: Fault Current ─────────────────────────────────────────────────────
+function renderFaultChart() {
+  const vmul = parseFloat(document.getElementById('fc_vmul').value);
+  const phi_deg = parseFloat(document.getElementById('fc_phi').value);
+  document.getElementById('fc_vmul_val').textContent = vmul.toFixed(2);
+  document.getElementById('fc_phi_val').textContent = phi_deg;
+  const r = calc(params);
+  const V1 = r.V1 * vmul;
+  const Z = Math.sqrt(params.R2**2 + params.X2**2);
+  const I_peak = Math.sqrt(2) * V1 / Z;
+  const tau = params.X2 / (2*Math.PI*params.freq * params.R2);
+  const phi = phi_deg * Math.PI/180;
+  const w = 2*Math.PI*params.freq;
+  const N = 250;
+  const t_end = 0.5;
+  const labels = Array.from({length:N},(_,i)=>+(i*t_end/(N-1)).toFixed(4));
+  const data = labels.map(t => I_peak*(Math.sin(w*t+phi) - Math.sin(phi)*Math.exp(-t/tau)));
+  const I_rms = I_peak / Math.sqrt(2);
+  document.getElementById('fault_stats').innerHTML =
+    `<p>I_peak = <b class="text-sky-400">${I_peak.toFixed(1)} A</b></p>
+     <p>I_rms = <b class="text-sky-400">${I_rms.toFixed(1)} A</b></p>
+     <p>τ = <b class="text-sky-400">${tau.toFixed(3)} s</b></p>`;
+  destroyChart('faultChart');
+  charts.faultChart = new Chart(document.getElementById('faultChart').getContext('2d'), {
+    type:'line', data:{labels, datasets:[{label:'Fault Current (A)',data,borderColor:'#f87171',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{title:{display:true,text:'Time (s)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Current (A)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+}
+
+// ─── Tab 4: Protection ────────────────────────────────────────────────────────
+function renderProtChart() {
+  const tms = parseFloat(document.getElementById('prot_tms').value);
+  const is_mul = parseFloat(document.getElementById('prot_is').value);
+  const In = parseFloat(document.getElementById('prot_in').value);
+  document.getElementById('prot_tms_val').textContent = tms.toFixed(2);
+  document.getElementById('prot_is_val').textContent = is_mul.toFixed(1);
+  document.getElementById('prot_in_val').textContent = In;
+  const Is = is_mul * In;
+  const curves = [
+    {label:'Normal Inverse',  k:0.14, a:0.02, color:'#38bdf8'},
+    {label:'Very Inverse',    k:13.5, a:1,    color:'#4ade80'},
+    {label:'Extremely Inv.',  k:80,   a:2,    color:'#f472b6'},
+  ];
+  const Imults = Array.from({length:100},(_,i)=>1.05 + i*0.2);
+  const datasets = curves.map(c => ({
+    label:c.label,
+    data: Imults.map(m => {const denom=Math.pow(m,c.a)-1; return denom>0 ? {x:m*Is, y:Math.min(tms*c.k/denom, 100)} : null}).filter(Boolean),
+    borderColor:c.color, backgroundColor:'transparent', borderWidth:2, pointRadius:0,
+  }));
+  // Motor inrush: approx starting current ~ 6×In for 2s
+  const r = calc(params);
+  const Z = Math.sqrt(params.R2**2 + params.X2**2);
+  const I_start = r.V1 / Z;
+  datasets.push({label:'Motor Start (2s)',data:[{x:I_start,y:0},{x:I_start,y:2}],borderColor:'#fbbf24',borderDash:[5,5],pointRadius:0,borderWidth:2});
+  destroyChart('protChart');
+  charts.protChart = new Chart(document.getElementById('protChart').getContext('2d'), {
+    type:'scatter',
+    data:{datasets},
+    options:{responsive:true,maintainAspectRatio:true,
+      scales:{
+        x:{type:'logarithmic',title:{display:true,text:'Current (A)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'}},
+        y:{type:'logarithmic',title:{display:true,text:'Time (s)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'},min:0.01,max:100},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+}
+
+// ─── Tab 5: Speed Controller ──────────────────────────────────────────────────
+function renderControllerCharts() { renderPIDChart(); renderFuzzyCharts(); }
+
+function renderPIDChart() {
+  const Kp = parseFloat(document.getElementById('pid_kp').value);
+  const Ki = parseFloat(document.getElementById('pid_ki').value);
+  const Kd = parseFloat(document.getElementById('pid_kd').value);
+  document.getElementById('pid_kp_val').textContent = Kp.toFixed(1);
+  document.getElementById('pid_ki_val').textContent = Ki.toFixed(3);
+  document.getElementById('pid_kd_val').textContent = Kd.toFixed(3);
+  // Discrete PID simulation
+  const dt = 0.01, T_end = 4;
+  const N = Math.floor(T_end/dt);
+  const J=0.05, B=0.01, Ke=0.5;
+  let omega=0, integError=0, prevError=0;
+  const ref_speed = t => t < 0.5 ? 1000*(Math.PI/30) : 1350*(Math.PI/30);
+  const load_torque = t => t < 2 ? 0 : 10;
+  const labels=[]; const speedData=[]; const refData=[];
+  for(let i=0;i<N;i++){
+    const t=i*dt;
+    const w_ref=ref_speed(t); const TL=load_torque(t);
+    const err=w_ref-omega; integError=Math.max(-1000,Math.min(1000,integError+err*dt));
+    const dErr=(err-prevError)/dt; prevError=err;
+    const Iq=Math.max(-50,Math.min(50, Kp*err+Ki*integError+Kd*dErr));
+    const Te=Ke*Iq;
+    omega=Math.max(0,omega+(Te-TL-B*omega)/J*dt);
+    if(i%2===0){labels.push(t.toFixed(2)); speedData.push(omega*30/Math.PI); refData.push(w_ref*30/Math.PI);}
+  }
+  destroyChart('pidChart');
+  charts.pidChart = new Chart(document.getElementById('pidChart').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Speed (rpm)',data:speedData,borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:2,pointRadius:0},
+      {label:'Reference (rpm)',data:refData,borderColor:'#fbbf24',borderDash:[5,3],borderWidth:1.5,pointRadius:0,backgroundColor:'transparent'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{title:{display:true,text:'Time (s)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8',maxTicksLimit:10}},y:{title:{display:true,text:'Speed (rpm)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+}
+
+function renderFuzzyCharts() {
+  // Membership functions
+  const x = Array.from({length:200},(_,i)=>-1+i*2/199);
+  const mfs = [
+    {label:'NB', center:-1,   color:'#ef4444'},
+    {label:'NM', center:-0.5, color:'#fb923c'},
+    {label:'Z',  center:0,    color:'#4ade80'},
+    {label:'PM', center:0.5,  color:'#60a5fa'},
+    {label:'PB', center:1,    color:'#c084fc'},
+  ];
+  const tri = (c,w,xi) => Math.max(0, 1-Math.abs(xi-c)/w);
+  destroyChart('fuzzyMFChart');
+  charts.fuzzyMFChart = new Chart(document.getElementById('fuzzyMFChart').getContext('2d'), {
+    type:'line',
+    data:{labels:x.map(v=>v.toFixed(2)), datasets:mfs.map(m=>({label:m.label,data:x.map(xi=>tri(m.center,0.5,xi)),borderColor:m.color,backgroundColor:m.color+'44',borderWidth:2,pointRadius:0,fill:true}))},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:8},grid:{color:'#334155'}},y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'},max:1.2}},plugins:{legend:{labels:{color:'#e2e8f0',boxWidth:10}},title:{display:true,text:'Fuzzy MFs (Error)',color:'#94a3b8'}}}
+  });
+  // Fuzzy simulation (simplified: use rule: if error big → large torque correction)
+  const dt=0.01, T_end=4, N2=Math.floor(T_end/dt);
+  const J=0.05,B=0.01,Ke=0.5;
+  let omega=0;
+  const ref_speed=t=>t<0.5?1000*(Math.PI/30):1350*(Math.PI/30);
+  const load_torque=t=>t<2?0:10;
+  const fuzzy_ctrl=(e,de)=>{ const norm_e=Math.max(-1,Math.min(1,e/100)); const out=Math.max(-50,Math.min(50,15*norm_e+2*de)); return out; };
+  const labels2=[]; const sd=[];
+  let prevE=0;
+  for(let i=0;i<N2;i++){
+    const t=i*dt; const w_ref=ref_speed(t); const TL=load_torque(t);
+    const e=(w_ref-omega)*30/Math.PI; const de=(e-prevE)/dt; prevE=e;
+    const Iq=fuzzy_ctrl(e,de); const Te=Ke*Iq;
+    omega=Math.max(0,omega+(Te-TL-B*omega)/J*dt);
+    if(i%2===0){labels2.push(t.toFixed(2)); sd.push(omega*30/Math.PI);}
+  }
+  destroyChart('fuzzyChart');
+  charts.fuzzyChart = new Chart(document.getElementById('fuzzyChart').getContext('2d'), {
+    type:'line',
+    data:{labels:labels2, datasets:[{label:'Fuzzy Speed (rpm)',data:sd,borderColor:'#4ade80',backgroundColor:'transparent',borderWidth:2,pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{title:{display:true,text:'Time (s)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8',maxTicksLimit:10}},y:{title:{display:true,text:'Speed (rpm)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+}
+
+// ─── Tab 6: Thermal ───────────────────────────────────────────────────────────
+function renderThermalChart() {
+  const Ta = parseFloat(document.getElementById('th_ta').value);
+  const lf = parseFloat(document.getElementById('th_lf').value);
+  const Rth1 = parseFloat(document.getElementById('th_r1').value);
+  const Rth2 = parseFloat(document.getElementById('th_r2').value);
+  document.getElementById('th_ta_val').textContent = Ta;
+  document.getElementById('th_lf_val').textContent = lf.toFixed(2);
+  document.getElementById('th_r1_val').textContent = Rth1.toFixed(2);
+  document.getElementById('th_r2_val').textContent = Rth2.toFixed(2);
+  const r = calc(params);
+  const I_fl = r.V1 / Math.sqrt(params.R2**2 + (params.X2*params.slip_fl)**2);
+  const P_loss = 3 * I_fl**2 * params.R2 * lf**2 + 500; // copper + core
+  const Cth1=5000, Cth2=20000;
+  const dt=10, T_end=3600;
+  const N=Math.floor(T_end/dt);
+  let T1=Ta, T2=Ta;
+  const labels=[], d1=[], d2=[];
+  for(let i=0;i<N;i++){
+    const q12=(T1-T2)/Rth1, q2a=(T2-Ta)/Rth2;
+    T1=Math.min(250, T1+(P_loss-q12)/Cth1*dt);
+    T2=Math.min(200, T2+(q12-q2a)/Cth2*dt);
+    if(i%(N/100)===0){labels.push((i*dt/60).toFixed(1)); d1.push(T1.toFixed(1)); d2.push(T2.toFixed(1));}
+  }
+  destroyChart('thermalChart');
+  charts.thermalChart = new Chart(document.getElementById('thermalChart').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Winding Temp (°C)',data:d1,borderColor:'#ef4444',backgroundColor:'transparent',borderWidth:2,pointRadius:0},
+      {label:'Frame Temp (°C)',data:d2,borderColor:'#fb923c',backgroundColor:'transparent',borderWidth:2,pointRadius:0},
+      {label:'Class B 130°C',data:labels.map(()=>130),borderColor:'#fbbf24',borderDash:[5,3],borderWidth:1,pointRadius:0,backgroundColor:'transparent'},
+      {label:'Class F 155°C',data:labels.map(()=>155),borderColor:'#f97316',borderDash:[5,3],borderWidth:1,pointRadius:0,backgroundColor:'transparent'},
+      {label:'Class H 180°C',data:labels.map(()=>180),borderColor:'#ef4444',borderDash:[5,3],borderWidth:1,pointRadius:0,backgroundColor:'transparent'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{title:{display:true,text:'Time (min)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8',maxTicksLimit:12}},y:{title:{display:true,text:'Temperature (°C)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0',boxWidth:10}}}}
+  });
+}
+
+// ─── Tab 7: Economic ──────────────────────────────────────────────────────────
+function renderEconChart() {
+  const price = parseFloat(document.getElementById('eco_price').value);
+  const hrs = parseFloat(document.getElementById('eco_hrs').value);
+  const kW = parseFloat(document.getElementById('eco_kw').value);
+  const eff_base = parseFloat(document.getElementById('eco_eff').value)/100;
+  document.getElementById('eco_price_val').textContent = price.toFixed(2);
+  document.getElementById('eco_hrs_val').textContent = hrs;
+  document.getElementById('eco_kw_val').textContent = kW;
+  document.getElementById('eco_eff_val').textContent = (eff_base*100).toFixed(1);
+  const loads = [25,50,75,100,125];
+  // Efficiency curve (motor eff typically peaks near 75-100% load)
+  const effVals = loads.map(l => {
+    const lf = l/100;
+    const P_cu = 3 * params.R2 * (lf**2);
+    const P_core = 0.02 * kW;
+    const P_out = kW * lf;
+    const P_in = P_out + P_cu*kW/100 + P_core;
+    return Math.min(0.99, P_out/P_in) * 100;
+  });
+  const costVals = loads.map((l,i) => {
+    const P_in_kW = kW * l/100 / (effVals[i]/100);
+    return P_in_kW * hrs * price;
+  });
+  destroyChart('econEffChart');
+  charts.econEffChart = new Chart(document.getElementById('econEffChart').getContext('2d'), {
+    type:'bar', data:{labels:loads.map(l=>l+'%'), datasets:[{label:'Efficiency (%)',data:effVals.map(v=>v.toFixed(1)),backgroundColor:'#0ea5e9aa',borderColor:'#0ea5e9',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}},y:{min:70,max:100,ticks:{color:'#94a3b8'},grid:{color:'#334155'},title:{display:true,text:'Efficiency (%)',color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+  destroyChart('econCostChart');
+  charts.econCostChart = new Chart(document.getElementById('econCostChart').getContext('2d'), {
+    type:'line', data:{labels:loads.map(l=>l+'%'), datasets:[{label:'Annual Cost ($)',data:costVals.map(v=>v.toFixed(0)),borderColor:'#4ade80',backgroundColor:'#4ade8033',borderWidth:2,pointRadius:4,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}},y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'},title:{display:true,text:'Annual Cost ($)',color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+  const fullCost = kW / (eff_base) * hrs * price;
+  const vfd_save = fullCost * 0.12;
+  const vfd_cost = kW * 80;
+  const payback = vfd_cost / vfd_save;
+  const co2 = kW/(eff_base) * hrs * 0.5;
+  document.getElementById('econ_summary').innerHTML = [
+    ['Annual Energy Cost', `$${fullCost.toFixed(0)}`],
+    ['VFD Annual Savings (12%)', `$${vfd_save.toFixed(0)}`],
+    ['VFD Payback Period', `${payback.toFixed(1)} yrs`],
+    ['CO₂ Emissions/yr', `${(co2/1000).toFixed(1)} t`],
+  ].map(([k,v])=>`<div class="bg-slate-700 rounded p-2 text-xs"><p class="text-slate-400">${k}</p><p class="result-val">${v}</p></div>`).join('');
+}
+
+// ─── Tab 8: Harmonics ────────────────────────────────────────────────────────
+function renderHarmonicCharts() {
+  const h5 = parseFloat(document.getElementById('h5').value)/100;
+  const h7 = parseFloat(document.getElementById('h7').value)/100;
+  const h11 = parseFloat(document.getElementById('h11').value)/100;
+  document.getElementById('h5_val').textContent = (h5*100).toFixed(0);
+  document.getElementById('h7_val').textContent = (h7*100).toFixed(0);
+  document.getElementById('h11_val').textContent = (h11*100).toFixed(0);
+  const f=params.freq, N=200, t_end=2/f;
+  const labels=Array.from({length:N},(_,i)=>+(i*t_end/(N-1)*1000).toFixed(2));
+  const w=2*Math.PI*f;
+  const wave=labels.map((_,i)=>{
+    const t=i*t_end/(N-1);
+    return Math.sin(w*t) + h5*Math.sin(5*w*t) + h7*Math.sin(7*w*t) + h11*Math.sin(11*w*t);
+  });
+  destroyChart('harmonicWave');
+  charts.harmonicWave = new Chart(document.getElementById('harmonicWave').getContext('2d'), {
+    type:'line', data:{labels:labels.map(v=>v+'ms'), datasets:[{label:'Voltage Waveform',data:wave,borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{title:{display:true,text:'Time (ms)',color:'#94a3b8'},grid:{color:'#334155'},ticks:{color:'#94a3b8',maxTicksLimit:8}},y:{grid:{color:'#334155'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+  const THD = Math.sqrt(h5**2+h7**2+h11**2)*100;
+  const dispPF = Math.cos(0);
+  const truePF = dispPF / Math.sqrt(1+THD**2/10000);
+  const harmLabels=['1st','5th','7th','11th'];
+  const harmAmps=[100, h5*100, h7*100, h11*100];
+  destroyChart('harmonicSpectrum');
+  charts.harmonicSpectrum = new Chart(document.getElementById('harmonicSpectrum').getContext('2d'), {
+    type:'bar', data:{labels:harmLabels, datasets:[{label:'Harmonic (%)',data:harmAmps,backgroundColor:['#0ea5e9','#ef4444','#f97316','#a78bfa'],borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:true,scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}},y:{min:0,max:110,ticks:{color:'#94a3b8'},grid:{color:'#334155'},title:{display:true,text:'Amplitude (%)',color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+  const ieee = THD < 5 ? '✅ PASS' : '❌ FAIL';
+  const ieeeColor = THD < 5 ? 'text-green-400' : 'text-red-400';
+  document.getElementById('harmonic_stats').innerHTML = [
+    ['THD (%)', THD.toFixed(2)+'%'],
+    ['Displacement PF', dispPF.toFixed(3)],
+    ['True PF', truePF.toFixed(3)],
+    ['IEEE 519 (5%)', ieee],
+  ].map(([k,v],i)=>`<div class="bg-slate-700 rounded p-2 text-xs"><p class="text-slate-400">${k}</p><p class="${i===3?ieeeColor:'result-val'}">${v}</p></div>`).join('');
+}
+
+// ─── Tab 9: Summary ───────────────────────────────────────────────────────────
+function renderSummaryTab() {
+  const r = calc(params);
+  const items = [
+    {label:'(i) Starting Torque', val:`${r.T_st.toFixed(2)} N·m`, color:'#38bdf8'},
+    {label:'(ii) Full Load Torque', val:`${r.T_fl.toFixed(2)} N·m`, color:'#4ade80'},
+    {label:'(iii) Slip @ Max Torque', val:`${(r.s_m*100).toFixed(1)}% → ${r.N_maxT.toFixed(0)} rpm`, color:'#fb923c'},
+    {label:'(iv) Maximum Torque', val:`${r.T_max.toFixed(2)} N·m`, color:'#c084fc'},
+    {label:'(v) T_st/T_max', val:r.ratio_st_max.toFixed(4), color:'#f472b6'},
+    {label:'(v) T_fl/T_max', val:r.ratio_fl_max.toFixed(4), color:'#fbbf24'},
+    {label:'(vi) R_add (actual rotor)', val:`${r.R_add_rotor.toFixed(5)} Ω`, color:'#34d399'},
+  ];
+  document.getElementById('summary_cards').innerHTML = items.map(it=>
+    `<div class="flex justify-between bg-slate-700 rounded px-3 py-2">
+      <span class="text-slate-300">${it.label}</span>
+      <span class="font-bold" style="color:${it.color}">${it.val}</span>
+    </div>`).join('');
+  // Radar chart
+  const normalized = [
+    r.T_st/r.T_max*100, r.T_fl/r.T_max*100, (1-r.s_m)*100,
+    100, r.ratio_st_max*100*2, r.ratio_fl_max*100
+  ];
+  destroyChart('radarChart');
+  charts.radarChart = new Chart(document.getElementById('radarChart').getContext('2d'), {
+    type:'radar',
+    data:{
+      labels:['T_st/T_max %','T_fl/T_max %','(1-s_m)%','T_max norm','2×T_st ratio','T_fl ratio'],
+      datasets:[{label:'Motor Performance', data:normalized, borderColor:'#0ea5e9', backgroundColor:'#0ea5e933', pointBackgroundColor:'#0ea5e9'}]
+    },
+    options:{responsive:true,maintainAspectRatio:true,scales:{r:{ticks:{color:'#94a3b8',backdropColor:'transparent'},grid:{color:'#334155'},pointLabels:{color:'#e2e8f0'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+}
+
+function printSummary() {
+  const r = calc(params);
+  const text = `3-Phase Induction Motor Analysis
+=====================================
+VL=${params.VL}V, f=${params.freq}Hz, p=${params.poles}, R2=${params.R2}Ω, X2=${params.X2}Ω, N1/N2=${params.turns}
+V1=${r.V1.toFixed(2)}V, Ns=${r.Ns.toFixed(0)}rpm, ws=${r.ws.toFixed(2)}rad/s
+
+(i)  Starting Torque:    ${r.T_st.toFixed(2)} N·m
+(ii) Full Load Torque:   ${r.T_fl.toFixed(2)} N·m  (s=${params.slip_fl})
+(iii)Slip @ Max Torque:  ${(r.s_m*100).toFixed(1)}%  Speed=${r.N_maxT.toFixed(0)} rpm
+(iv) Maximum Torque:     ${r.T_max.toFixed(2)} N·m
+(v)  T_st/T_max:         ${r.ratio_st_max.toFixed(4)}
+     T_fl/T_max:         ${r.ratio_fl_max.toFixed(4)}
+(vi) R_add (rotor):      ${r.R_add_rotor.toFixed(5)} Ω`;
+  const w = window.open('', '_blank');
+  w.document.write(`<pre style="font-family:monospace;white-space:pre">${text}</pre>`);
+  w.print();
+}
+
+// ─── Chart destroy helper ─────────────────────────────────────────────────────
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  calcLiveTorque();
+  renderTorqueChart();
+});
+</script>
+</body>
+</html>
