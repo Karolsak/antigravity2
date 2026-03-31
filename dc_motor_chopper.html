@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DC Motor Chopper — Complete Engineering Analysis</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { background:#0f172a; color:#e2e8f0; font-family:'Segoe UI',sans-serif; }
+  .tab-btn { transition:all .2s; }
+  .tab-btn.active { background:#f59e0b; color:#000; }
+  .card { background:#1e293b; border:1px solid #334155; border-radius:.75rem; }
+  input[type=range] { accent-color:#f59e0b; width:100%; }
+  .result-val { color:#fbbf24; font-weight:700; }
+  .formula { background:#0f172a; border-left:3px solid #f59e0b; padding:.5rem 1rem; margin:.5rem 0; font-family:monospace; font-size:.85rem; border-radius:0 .5rem .5rem 0; }
+  .answer { background:#1c1917; border:1px solid #ca8a04; border-radius:.5rem; padding:.75rem; margin:.5rem 0; }
+  canvas { max-width:100%; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  select { background:#1e293b; border:1px solid #475569; border-radius:.375rem; color:#e2e8f0; padding:.25rem .5rem; }
+  .badge-ok { background:#14532d; color:#86efac; border:1px solid #16a34a; }
+  .badge-warn { background:#422006; color:#fde68a; border:1px solid #d97706; }
+  .badge-fail { background:#450a0a; color:#fca5a5; border:1px solid #dc2626; }
+  .badge { border-radius:.375rem; padding:.1rem .5rem; font-size:.75rem; font-weight:700; }
+</style>
+</head>
+<body class="min-h-screen p-4">
+<div class="max-w-7xl mx-auto">
+
+  <h1 class="text-2xl font-bold text-center mb-1 text-amber-400">⚡ DC Motor Chopper Drive — Complete Engineering Analysis</h1>
+  <p class="text-center text-slate-400 text-sm mb-4">230 V | 960 rpm | 200 A | Ra = 0.02 Ω | Separately Excited | Chopper Drive</p>
+
+  <!-- Tab buttons -->
+  <div class="flex flex-wrap gap-1 mb-4" id="tab-bar">
+    <button class="tab-btn active px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(0)">📚 Theory</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(1)">⚙️ Parameters</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(2)">📈 Simulation</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(3)">⚡ Fault Current</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(4)">🛡️ Protection</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(5)">🎛️ Speed Ctrl</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(6)">🌡️ Thermal</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(7)">💰 Economic</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(8)">〰️ Harmonics</button>
+    <button class="tab-btn px-3 py-1.5 text-xs rounded font-medium bg-slate-700" onclick="switchTab(9)">📊 Summary</button>
+  </div>
+
+  <!-- ═══════════════════════ TAB 0 — Theory & Solution ═══════════════════════ -->
+  <div id="tab0" class="tab-content active">
+    <div class="card p-4 mb-4">
+      <h2 class="text-lg font-bold text-amber-300 mb-2">Problem Statement</h2>
+      <p class="text-slate-300 text-sm leading-relaxed">
+        A <strong class="text-white">230 V, 960 rpm, 200 A</strong> separately excited DC motor has an armature resistance of
+        <strong class="text-white">Ra = 0.02 Ω</strong>. The motor is fed from a <strong class="text-white">chopper</strong>
+        which provides both <em>motoring</em> and <em>braking</em> operation. The source voltage is <strong class="text-white">Vs = 230 V</strong>.
+        Assuming continuous current conduction:
+      </p>
+      <ul class="text-slate-300 text-sm mt-2 ml-4 list-disc">
+        <li>(i) Calculate duty ratio for <strong class="text-amber-300">motoring</strong> operation at rated torque and 350 rpm.</li>
+        <li>(ii) Calculate duty ratio for <strong class="text-sky-300">braking</strong> operation at rated torque and 350 rpm.</li>
+      </ul>
+    </div>
+
+    <!-- Given Data Grid -->
+    <div class="card p-4 mb-4">
+      <h2 class="text-lg font-bold text-amber-300 mb-3">Given Data &amp; Equivalent Circuit</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">V_s (source)</span><br><span class="result-val">230 V</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">V_rated</span><br><span class="result-val">230 V</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">N_rated</span><br><span class="result-val">960 rpm</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">I_a rated</span><br><span class="result-val">200 A</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">R_a</span><br><span class="result-val">0.02 Ω</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">Speed of interest</span><br><span class="result-val">350 rpm</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">Excitation</span><br><span class="result-val">Separate</span></div>
+        <div class="bg-slate-700 rounded p-2"><span class="text-slate-400">Conduction</span><br><span class="result-val">Continuous</span></div>
+      </div>
+      <p class="text-slate-400 text-sm">Equivalent circuit (per phase, motoring):
+        <code class="text-amber-300">Vs → Chopper → Va → Ra → E_b</code>
+        (KVL: Va = E_b + I_a × R_a)
+      </p>
+      <p class="text-slate-400 text-sm mt-1">For braking (regenerative, Q2 chopper):
+        <code class="text-sky-300">E_b → Ra → (1−δ)·Vs</code>
+        (KVL: E_b = (1−δ)·Vs + I_a·Ra reversed)
+      </p>
+    </div>
+
+    <!-- Step-by-step solution -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+      <!-- Step 1: Back EMF at rated -->
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">Step 1 — Back EMF at Rated Conditions</h3>
+        <div class="formula">E_rated = V_rated − I_a_rated × R_a</div>
+        <div class="formula">E_rated = 230 − 200 × 0.02 = 230 − 4</div>
+        <div class="answer">✅ <strong>E_rated = 226 V</strong></div>
+      </div>
+
+      <!-- Step 2: Motor constant -->
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">Step 2 — Motor Constant K·φ</h3>
+        <div class="formula">ω_rated = 2π × 960/60 = 100.53 rad/s</div>
+        <div class="formula">Kφ = E_rated / ω_rated = 226 / 100.53</div>
+        <div class="answer">✅ <strong>Kφ = 2.248 V·s/rad</strong> (= 0.2353 V·min/rev)</div>
+      </div>
+
+      <!-- Step 3: Back EMF at 350 rpm -->
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">Step 3 — Back EMF at 350 rpm</h3>
+        <div class="formula">ω_350 = 2π × 350/60 = 36.65 rad/s</div>
+        <div class="formula">E_350 = Kφ × ω_350 = 2.248 × 36.65</div>
+        <div class="answer">✅ <strong>E_350 = 82.37 V</strong></div>
+      </div>
+
+      <!-- Step 4: Voltage drop -->
+      <div class="card p-4">
+        <h3 class="font-bold text-emerald-400 mb-2">Step 4 — I·Ra Drop at Rated Torque</h3>
+        <div class="formula">ΔV = I_a × R_a = 200 × 0.02</div>
+        <div class="answer">✅ <strong>ΔV = 4 V</strong> (constant at rated torque)</div>
+        <p class="text-slate-400 text-xs mt-1">Torque ∝ I_a for separately excited motor (constant flux)</p>
+      </div>
+    </div>
+
+    <!-- Final Answers -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="card p-4 border border-amber-700">
+        <h3 class="font-bold text-amber-400 mb-2 text-base">(i) Motoring — Step-down (Class A) Chopper</h3>
+        <p class="text-slate-300 text-sm mb-2">Average motor terminal voltage: <code>Va = δ × Vs</code></p>
+        <p class="text-slate-300 text-sm mb-2">KVL (motor equation): <code>Va = E_350 + I_a × Ra</code></p>
+        <div class="formula">δ × 230 = 82.37 + 4 = 86.37</div>
+        <div class="formula">δ = 86.37 / 230</div>
+        <div class="answer text-lg font-bold text-center">
+          ✅ δ<sub>motoring</sub> = <span class="result-val text-2xl">0.3755</span>
+          &nbsp;≈&nbsp;<span class="text-amber-300 text-xl">37.55%</span>
+        </div>
+        <p class="text-slate-400 text-xs mt-2">Interpretation: The chopper switch conducts 37.55% of each period. Since 350 rpm is well below rated (960 rpm), only ≈38% of the supply voltage is applied on average.</p>
+      </div>
+
+      <div class="card p-4 border border-sky-700">
+        <h3 class="font-bold text-sky-400 mb-2 text-base">(ii) Braking — Regenerative (Class B) Chopper</h3>
+        <p class="text-slate-300 text-sm mb-2">Motor acts as generator; averaged terminal voltage: <code>Va = (1−δ)·Vs</code></p>
+        <p class="text-slate-300 text-sm mb-2">KVL: <code>E_350 = Va + I_a × Ra</code> → <code>Va = E_350 − I_a·Ra</code></p>
+        <div class="formula">(1−δ) × 230 = 82.37 − 4 = 78.37</div>
+        <div class="formula">(1−δ) = 78.37 / 230 = 0.3407 → δ = 1 − 0.3407</div>
+        <div class="answer text-lg font-bold text-center">
+          ✅ δ<sub>braking</sub> = <span class="result-val text-2xl">0.6593</span>
+          &nbsp;≈&nbsp;<span class="text-sky-300 text-xl">65.93%</span>
+        </div>
+        <p class="text-slate-400 text-xs mt-2">Interpretation: The braking chopper switch conducts 65.93% of each period. The higher duty cycle keeps the current path through the armature longer, extracting regenerative energy back to the supply.</p>
+      </div>
+    </div>
+
+    <!-- Physical Explanation -->
+    <div class="card p-4 mb-4">
+      <h2 class="text-lg font-bold text-amber-300 mb-3">Detailed Physical Explanation</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300 leading-relaxed">
+        <div>
+          <h4 class="text-amber-300 font-semibold mb-1">🔁 How the Motoring Chopper Works</h4>
+          <p>A <strong>Class A (step-down / buck)</strong> DC-DC converter applies a pulsed voltage to the motor armature. With a switching frequency typically 1–20 kHz and continuous armature inductance current, the average voltage is Va = δ·Vs. The armature inductance L_a smooths the ripple current.</p>
+          <p class="mt-1">At low speeds (350 rpm ≪ 960 rpm), a small duty ratio (≈38%) suffices because the back-EMF is proportionally low. The motor then accelerates or holds 350 rpm while delivering full rated torque (200 A armature current).</p>
+        </div>
+        <div>
+          <h4 class="text-sky-300 font-semibold mb-1">♻️ How the Regenerative Braking Chopper Works</h4>
+          <p>In <strong>Class B (regenerative braking)</strong> operation, the motor still rotates at 350 rpm producing E_350 = 82.37 V, but the braking torque reverses the armature current direction. A second switch (Q2) and diode are used. When Q2 is ON, current builds in the armature circuit. When Q2 is OFF, the current freewheels through D1 into the supply, returning energy.</p>
+          <p class="mt-1">Average terminal voltage during OFF time = Vs, so (1−δ)·Vs = 78.37 V, giving δ ≈ 66%. The regenerative energy saved goes back to the supply bus, improving overall efficiency.</p>
+        </div>
+      </div>
+      <div class="mt-3 p-3 bg-slate-900 rounded text-xs font-mono text-slate-300">
+        <p class="text-amber-400 font-bold">Summary table</p>
+        <table class="w-full text-center mt-2">
+          <thead><tr class="text-slate-400"><th>Mode</th><th>Va (avg)</th><th>E_350</th><th>I_a·Ra</th><th>KVL</th><th class="text-amber-300">δ</th></tr></thead>
+          <tbody>
+            <tr class="border-t border-slate-700"><td class="text-amber-300">Motoring</td><td>δ·Vs</td><td>+82.37 V</td><td>+4 V</td><td>Va = E+IR</td><td class="text-amber-300 font-bold">0.3755</td></tr>
+            <tr class="border-t border-slate-700"><td class="text-sky-300">Braking</td><td>(1−δ)·Vs</td><td>+82.37 V</td><td>−4 V</td><td>Va = E−IR</td><td class="text-sky-300 font-bold">0.6593</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 1 — Parameters ═══════════════════════ -->
+  <div id="tab1" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h2 class="text-lg font-bold text-amber-300 mb-3">⚙️ Machine & Chopper Parameters</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+
+        <div>
+          <label class="text-slate-400">Source Voltage Vs (V): <span id="vs_val" class="result-val">230</span></label>
+          <input type="range" id="vs" min="100" max="600" step="5" value="230" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Rated Speed N_r (rpm): <span id="nr_val" class="result-val">960</span></label>
+          <input type="range" id="nr" min="300" max="3000" step="10" value="960" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Rated Armature Current I_r (A): <span id="ir_val" class="result-val">200</span></label>
+          <input type="range" id="ir" min="10" max="500" step="5" value="200" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Armature Resistance Ra (Ω): <span id="ra_val" class="result-val">0.020</span></label>
+          <input type="range" id="ra" min="0.005" max="2" step="0.005" value="0.02" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Armature Inductance La (mH): <span id="la_val" class="result-val">5.0</span></label>
+          <input type="range" id="la" min="0.5" max="50" step="0.5" value="5" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Analysis Speed N_op (rpm): <span id="nop_val" class="result-val">350</span></label>
+          <input type="range" id="nop" min="50" max="1200" step="10" value="350" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Chopper Frequency f_ch (kHz): <span id="fch_val" class="result-val">2.0</span></label>
+          <input type="range" id="fch" min="0.5" max="20" step="0.5" value="2" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Load Inertia J (kg·m²): <span id="jval" class="result-val">0.50</span></label>
+          <input type="range" id="jslider" min="0.05" max="5" step="0.05" value="0.5" oninput="onParamChange()">
+        </div>
+        <div>
+          <label class="text-slate-400">Friction B (N·m·s): <span id="bval" class="result-val">0.010</span></label>
+          <input type="range" id="bslider" min="0.001" max="0.2" step="0.001" value="0.01" oninput="onParamChange()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Live results -->
+    <div class="card p-4" id="param_results">
+      <h3 class="font-bold text-amber-300 mb-3">Live Calculated Results</h3>
+      <div id="live_results" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 2 — Simulation ═══════════════════════ -->
+  <div id="tab2" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h3 class="font-bold text-amber-300 mb-3">Chopper Output Waveform</h3>
+      <div class="flex gap-2 flex-wrap mb-3">
+        <label class="text-slate-400 text-sm">Mode:
+          <select id="sim_mode" onchange="renderSimCharts()">
+            <option value="motor">Motoring</option>
+            <option value="brake">Braking (Regenerative)</option>
+          </select>
+        </label>
+        <label class="text-slate-400 text-sm">Speed (rpm): <span id="sim_speed_val" class="result-val">350</span>
+          <input type="range" id="sim_speed" min="50" max="960" step="10" value="350" oninput="renderSimCharts()" style="width:120px">
+        </label>
+        <label class="text-slate-400 text-sm">Torque %: <span id="sim_torq_val" class="result-val">100</span>
+          <input type="range" id="sim_torq" min="10" max="150" step="5" value="100" oninput="renderSimCharts()" style="width:120px">
+        </label>
+      </div>
+      <canvas id="chopperWave" height="120"></canvas>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h3 class="font-bold text-amber-300 mb-2">Torque–Speed Characteristic</h3>
+        <canvas id="tsChart" height="160"></canvas>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold text-amber-300 mb-2">Duty Ratio vs Speed</h3>
+        <canvas id="dutyChart" height="160"></canvas>
+      </div>
+    </div>
+    <div class="card p-4 mt-4" id="sim_stats_card">
+      <h3 class="font-bold text-amber-300 mb-2">Operating Point</h3>
+      <div id="sim_stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 3 — Fault Current ═══════════════════════ -->
+  <div id="tab3" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h3 class="font-bold text-amber-300 mb-3">⚡ Fault Current Modelling</h3>
+      <p class="text-slate-400 text-sm mb-3">Simulates armature short-circuit fault (Va applied to stalled motor). The asymmetric fault current includes both AC steady-state and DC offset components decaying with time constant τ = La/Ra.</p>
+      <div class="flex gap-4 flex-wrap mb-3">
+        <label class="text-slate-400 text-sm">Voltage multiplier: <span id="fc_vmul_val" class="result-val">1.0</span>
+          <input type="range" id="fc_vmul" min="0.5" max="2" step="0.05" value="1" oninput="renderFaultChart()" style="width:120px">
+        </label>
+        <label class="text-slate-400 text-sm">Switching angle α (°): <span id="fc_alpha_val" class="result-val">0</span>
+          <input type="range" id="fc_alpha" min="0" max="90" step="5" value="0" oninput="renderFaultChart()" style="width:120px">
+        </label>
+        <label class="text-slate-400 text-sm">Fault type:
+          <select id="fc_type" onchange="renderFaultChart()">
+            <option value="armature">Armature short</option>
+            <option value="supply">Supply fault (Vs → 0)</option>
+            <option value="chopper">Chopper IGBT latch-up</option>
+          </select>
+        </label>
+      </div>
+      <div id="fault_stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3"></div>
+      <canvas id="faultChart" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 4 — Protection ═══════════════════════ -->
+  <div id="tab4" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h3 class="font-bold text-amber-300 mb-3">🛡️ Protection Coordination</h3>
+      <div class="flex gap-4 flex-wrap mb-3">
+        <label class="text-slate-400 text-sm">TMS: <span id="prot_tms_val" class="result-val">0.10</span>
+          <input type="range" id="prot_tms" min="0.05" max="1" step="0.05" value="0.1" oninput="renderProtChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400 text-sm">I_s (×I_n): <span id="prot_is_val" class="result-val">1.5</span>
+          <input type="range" id="prot_is" min="1.1" max="5" step="0.1" value="1.5" oninput="renderProtChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400 text-sm">I_n (A): <span id="prot_in_val" class="result-val">200</span>
+          <input type="range" id="prot_in" min="50" max="500" step="10" value="200" oninput="renderProtChart()" style="width:100px">
+        </label>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h4 class="text-slate-300 text-sm font-semibold mb-2">IDMT Relay Curves (IEC 60255)</h4>
+          <canvas id="protChart" height="200"></canvas>
+        </div>
+        <div class="card p-3" style="background:#0f172a">
+          <h4 class="text-slate-300 text-sm font-semibold mb-2">Protection Settings Guide</h4>
+          <div id="prot_advice" class="text-xs text-slate-300 leading-relaxed"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 5 — Speed Controller ═══════════════════════ -->
+  <div id="tab5" class="tab-content">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <!-- PID -->
+      <div class="card p-4">
+        <h3 class="font-bold text-amber-300 mb-3">🎛️ PID Speed Controller</h3>
+        <div class="flex flex-col gap-2 text-sm mb-3">
+          <label class="text-slate-400">Kp: <span id="pid_kp_val" class="result-val">5.0</span>
+            <input type="range" id="pid_kp" min="0.1" max="30" step="0.1" value="5" oninput="renderControllerCharts()" style="width:100%">
+          </label>
+          <label class="text-slate-400">Ki: <span id="pid_ki_val" class="result-val">0.050</span>
+            <input type="range" id="pid_ki" min="0.001" max="2" step="0.001" value="0.05" oninput="renderControllerCharts()" style="width:100%">
+          </label>
+          <label class="text-slate-400">Kd: <span id="pid_kd_val" class="result-val">0.010</span>
+            <input type="range" id="pid_kd" min="0" max="0.5" step="0.001" value="0.01" oninput="renderControllerCharts()" style="width:100%">
+          </label>
+        </div>
+        <canvas id="pidChart" height="200"></canvas>
+      </div>
+      <!-- Fuzzy -->
+      <div class="card p-4">
+        <h3 class="font-bold text-amber-300 mb-3">🧠 Fuzzy Logic Controller</h3>
+        <canvas id="fuzzyMFChart" height="100"></canvas>
+        <canvas id="fuzzyChart" height="140" class="mt-2"></canvas>
+      </div>
+    </div>
+    <div class="card p-4">
+      <h3 class="font-bold text-amber-300 mb-2">Step Load Change Response Comparison</h3>
+      <div class="flex gap-4 flex-wrap text-sm mb-2">
+        <label class="text-slate-400">Step Load Torque (N·m): <span id="step_tl_val" class="result-val">50</span>
+          <input type="range" id="step_tl" min="0" max="200" step="5" value="50" oninput="renderControllerCharts()" style="width:120px">
+        </label>
+        <label class="text-slate-400">Step at t(s): <span id="step_t_val" class="result-val">2.0</span>
+          <input type="range" id="step_t" min="0.5" max="3.5" step="0.1" value="2" oninput="renderControllerCharts()" style="width:120px">
+        </label>
+      </div>
+      <canvas id="compareChart" height="140"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 6 — Thermal ═══════════════════════ -->
+  <div id="tab6" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h3 class="font-bold text-amber-300 mb-3">🌡️ Thermal Model — Two-Body (Winding & Frame)</h3>
+      <div class="flex gap-4 flex-wrap text-sm mb-3">
+        <label class="text-slate-400">Ambient Temp T_a (°C): <span id="th_ta_val" class="result-val">25</span>
+          <input type="range" id="th_ta" min="0" max="50" step="1" value="25" oninput="renderThermalChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400">Load Factor: <span id="th_lf_val" class="result-val">1.00</span>
+          <input type="range" id="th_lf" min="0.1" max="1.5" step="0.05" value="1" oninput="renderThermalChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400">R_th1 (K/W): <span id="th_r1_val" class="result-val">0.05</span>
+          <input type="range" id="th_r1" min="0.01" max="0.3" step="0.01" value="0.05" oninput="renderThermalChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400">R_th2 (K/W): <span id="th_r2_val" class="result-val">0.20</span>
+          <input type="range" id="th_r2" min="0.05" max="1" step="0.05" value="0.2" oninput="renderThermalChart()" style="width:100px">
+        </label>
+      </div>
+      <canvas id="thermalChart" height="180"></canvas>
+      <div id="thermal_stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mt-3"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 7 — Economic ═══════════════════════ -->
+  <div id="tab7" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h3 class="font-bold text-amber-300 mb-3">💰 Economic &amp; Energy Analysis</h3>
+      <div class="flex gap-4 flex-wrap text-sm mb-3">
+        <label class="text-slate-400">Energy price ($/kWh): <span id="eco_price_val" class="result-val">0.15</span>
+          <input type="range" id="eco_price" min="0.05" max="0.5" step="0.01" value="0.15" oninput="renderEconChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400">Hours/year: <span id="eco_hrs_val" class="result-val">4000</span>
+          <input type="range" id="eco_hrs" min="500" max="8760" step="100" value="4000" oninput="renderEconChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400">Motor kW: <span id="eco_kw_val" class="result-val">46</span>
+          <input type="range" id="eco_kw" min="5" max="500" step="1" value="46" oninput="renderEconChart()" style="width:100px">
+        </label>
+        <label class="text-slate-400">Base eff (%): <span id="eco_eff_val" class="result-val">92.0</span>
+          <input type="range" id="eco_eff" min="70" max="98" step="0.5" value="92" oninput="renderEconChart()" style="width:100px">
+        </label>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <canvas id="econEffChart" height="180"></canvas>
+        <canvas id="econCostChart" height="180"></canvas>
+      </div>
+      <div id="econ_summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mt-3"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 8 — Harmonics ═══════════════════════ -->
+  <div id="tab8" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h3 class="font-bold text-amber-300 mb-3">〰️ Harmonics &amp; Power Quality — Chopper Drive</h3>
+      <p class="text-slate-400 text-xs mb-2">Chopper drives inject ripple harmonics. Adjust duty ratio (δ) and chopper frequency to observe the voltage/current harmonic spectrum.</p>
+      <div class="flex gap-4 flex-wrap text-sm mb-3">
+        <label class="text-slate-400">Duty ratio δ: <span id="hm_delta_val" class="result-val">0.376</span>
+          <input type="range" id="hm_delta" min="0.05" max="0.95" step="0.005" value="0.376" oninput="renderHarmonicCharts()" style="width:120px">
+        </label>
+        <label class="text-slate-400">f_ch (kHz): <span id="hm_fch_val" class="result-val">2.0</span>
+          <input type="range" id="hm_fch" min="0.5" max="20" step="0.5" value="2" oninput="renderHarmonicCharts()" style="width:100px">
+        </label>
+        <label class="text-slate-400">V_ripple (% of Vs): <span id="hm_vrip_val" class="result-val">5</span>
+          <input type="range" id="hm_vrip" min="1" max="30" step="1" value="5" oninput="renderHarmonicCharts()" style="width:100px">
+        </label>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h4 class="text-sm text-slate-300 mb-1">Chopper Output Voltage Waveform</h4>
+          <canvas id="harmonicWave" height="160"></canvas>
+        </div>
+        <div>
+          <h4 class="text-sm text-slate-300 mb-1">Harmonic Spectrum (Fourier)</h4>
+          <canvas id="harmonicSpectrum" height="160"></canvas>
+        </div>
+      </div>
+      <div id="harmonic_stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mt-3"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TAB 9 — Summary ═══════════════════════ -->
+  <div id="tab9" class="tab-content">
+    <div class="card p-4 mb-4">
+      <h2 class="text-lg font-bold text-amber-300 mb-3">📊 Comprehensive Analysis Summary</h2>
+      <div id="summary_cards" class="flex flex-col gap-2 mb-4"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <canvas id="radarChart" height="200"></canvas>
+        <canvas id="quadrantChart" height="200"></canvas>
+      </div>
+      <div class="mt-3">
+        <button onclick="printSummary()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded text-sm font-medium">🖨️ Print / Export Summary</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /max-w -->
+
+<script>
+// ═══════════════════════ Motor Parameters ════════════════════════════════════
+const P = {
+  Vs: 230, Nr: 960, Ir: 200, Ra: 0.02, La: 5e-3, // La in H
+  Nop: 350, fch: 2000, J: 0.5, B: 0.01
+};
+
+// ─── Core Calculations ───────────────────────────────────────────────────────
+function calcMotor(p) {
+  const wr = p.Nr * Math.PI / 30;
+  const Eback_rated = p.Vs - p.Ir * p.Ra;
+  const Kphi = Eback_rated / wr;          // V·s/rad
+  const wop = p.Nop * Math.PI / 30;
+  const Eback_op = Kphi * wop;
+  const dV = p.Ir * p.Ra;                 // I_a * Ra at rated torque
+  const Va_motor = Eback_op + dV;
+  const Va_brake = Eback_op - dV;
+  const delta_m = Math.max(0, Math.min(1, Va_motor / p.Vs));
+  const delta_b = Math.max(0, Math.min(1, 1 - Va_brake / p.Vs));
+  const T_rated = Kphi * p.Ir;           // N·m (rated torque)
+  const P_out = T_rated * wop;           // W at operating speed
+  const P_in = p.Vs * p.Ir * delta_m;   // W from supply (motoring)
+  const eta = P_out > 0 ? Math.min(0.999, P_out / P_in) : 0;
+  return { wr, Eback_rated, Kphi, wop, Eback_op, dV,
+           Va_motor, Va_brake, delta_m, delta_b,
+           T_rated, P_out, P_in, eta };
+}
+
+// ─── Read sliders → update P ─────────────────────────────────────────────────
+function readParams() {
+  P.Vs  = parseFloat(document.getElementById('vs').value);
+  P.Nr  = parseFloat(document.getElementById('nr').value);
+  P.Ir  = parseFloat(document.getElementById('ir').value);
+  P.Ra  = parseFloat(document.getElementById('ra').value);
+  P.La  = parseFloat(document.getElementById('la').value) * 1e-3;
+  P.Nop = parseFloat(document.getElementById('nop').value);
+  P.fch = parseFloat(document.getElementById('fch').value) * 1000;
+  P.J   = parseFloat(document.getElementById('jslider').value);
+  P.B   = parseFloat(document.getElementById('bslider').value);
+  // update labels
+  document.getElementById('vs_val').textContent  = P.Vs;
+  document.getElementById('nr_val').textContent  = P.Nr;
+  document.getElementById('ir_val').textContent  = P.Ir;
+  document.getElementById('ra_val').textContent  = P.Ra.toFixed(3);
+  document.getElementById('la_val').textContent  = (P.La*1000).toFixed(1);
+  document.getElementById('nop_val').textContent = P.Nop;
+  document.getElementById('fch_val').textContent = (P.fch/1000).toFixed(1);
+  document.getElementById('jval').textContent    = P.J.toFixed(2);
+  document.getElementById('bval').textContent    = P.B.toFixed(3);
+}
+
+function onParamChange() {
+  readParams();
+  updateLiveResults();
+}
+
+function updateLiveResults() {
+  const r = calcMotor(P);
+  const items = [
+    ['E_back @ rated', r.Eback_rated.toFixed(2) + ' V'],
+    ['Kφ', r.Kphi.toFixed(4) + ' V·s/rad'],
+    ['E_back @ ' + P.Nop + ' rpm', r.Eback_op.toFixed(2) + ' V'],
+    ['I_a·Ra drop', r.dV.toFixed(2) + ' V'],
+    ['Va (motoring)', r.Va_motor.toFixed(2) + ' V'],
+    ['Va (braking)', r.Va_brake.toFixed(2) + ' V'],
+    ['δ motoring', r.delta_m.toFixed(4)],
+    ['δ braking', r.delta_b.toFixed(4)],
+    ['Rated Torque', r.T_rated.toFixed(1) + ' N·m'],
+    ['P_out @ op', (r.P_out/1000).toFixed(2) + ' kW'],
+    ['P_in (motor)', (r.P_in/1000).toFixed(2) + ' kW'],
+    ['Efficiency', (r.eta*100).toFixed(1) + '%'],
+  ];
+  document.getElementById('live_results').innerHTML = items.map(([k,v])=>
+    `<div class="bg-slate-700 rounded p-2">
+       <p class="text-slate-400 text-xs">${k}</p>
+       <p class="result-val">${v}</p>
+     </div>`
+  ).join('');
+}
+
+// ─── Chart registry ───────────────────────────────────────────────────────────
+const charts = {};
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ─── Tab switcher ─────────────────────────────────────────────────────────────
+const TAB_RENDERERS = [null, null, renderSimCharts, renderFaultChart,
+                       renderProtChart, renderControllerCharts,
+                       renderThermalChart, renderEconChart,
+                       renderHarmonicCharts, renderSummaryTab];
+let activeTab = 0;
+function switchTab(n) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab'+n).classList.add('active');
+  document.querySelectorAll('#tab-bar .tab-btn')[n].classList.add('active');
+  activeTab = n;
+  if (TAB_RENDERERS[n]) TAB_RENDERERS[n]();
+}
+
+// ═══════════════════════ TAB 2 — Simulation ══════════════════════════════════
+function renderSimCharts() {
+  const mode   = document.getElementById('sim_mode').value;
+  const speed  = parseFloat(document.getElementById('sim_speed').value);
+  const torqPc = parseFloat(document.getElementById('sim_torq').value);
+  document.getElementById('sim_speed_val').textContent = speed;
+  document.getElementById('sim_torq_val').textContent  = torqPc;
+
+  const r = calcMotor({...P, Nop: speed, Ir: P.Ir * torqPc/100 });
+  const delta = mode === 'motor' ? r.delta_m : r.delta_b;
+  const Tch = 1 / P.fch;
+
+  // Chopper waveform (3 periods)
+  const Npts = 300, periods = 3;
+  const labels = [], wave = [], current = [];
+  let ia = P.Ir * torqPc/100; // approximate steady current
+  for (let i = 0; i < Npts; i++) {
+    const t = i / Npts * periods * Tch;
+    labels.push((t * 1e6).toFixed(1));
+    const tmod = (t % Tch) / Tch;
+    let va;
+    if (mode === 'motor') {
+      va = tmod < delta ? P.Vs : 0;
+    } else {
+      // braking: switch Q2 ON → va=0, switch OFF → va=Vs
+      va = tmod < delta ? 0 : P.Vs;
+    }
+    wave.push(va);
+    // current ripple approximation
+    const tau = P.La / P.Ra;
+    const ripple = (P.Vs / P.Ra) * (1 - Math.exp(-Tch / tau)) * 0.05;
+    current.push(ia + ripple * Math.sin(2*Math.PI * i / (Npts/periods)));
+  }
+
+  destroyChart('chopperWave');
+  charts.chopperWave = new Chart(document.getElementById('chopperWave').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Va (V)', data:wave,  borderColor:'#f59e0b', backgroundColor:'#f59e0b22', borderWidth:2, pointRadius:0, fill:true, yAxisID:'y1'},
+      {label:'Ia (A)', data:current, borderColor:'#38bdf8', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, yAxisID:'y2'},
+    ]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{ticks:{color:'#94a3b8', maxTicksLimit:8}, grid:{color:'#334155'}, title:{display:true, text:'Time (μs)', color:'#94a3b8'}},
+        y1:{position:'left',  ticks:{color:'#f59e0b'}, grid:{color:'#334155'}, title:{display:true, text:'Va (V)', color:'#f59e0b'}, min:0, max:P.Vs*1.1},
+        y2:{position:'right', ticks:{color:'#38bdf8'}, grid:{drawOnChartArea:false}, title:{display:true, text:'Ia (A)', color:'#38bdf8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  // Torque-speed characteristic (motoring & braking envelope)
+  const speeds = Array.from({length:100}, (_,i) => i * P.Nr / 99);
+  const t_motor = speeds.map(n => {
+    const Eb = calcMotor({...P, Nop:n}).Eback_op;
+    const Va = P.Vs;  // max duty = 1
+    const Ia = Math.max(0, (Va - Eb) / P.Ra);
+    return Math.min(Ia, P.Ir*1.5) * calcMotor(P).Kphi;
+  });
+  const t_brake = speeds.map(n => {
+    const Eb = calcMotor({...P, Nop:n}).Eback_op;
+    // braking: Va_avg = 0 → Ia_brake max
+    const Ia = Math.min(P.Ir*1.5, Eb / P.Ra);
+    return Ia * calcMotor(P).Kphi;
+  });
+
+  destroyChart('tsChart');
+  charts.tsChart = new Chart(document.getElementById('tsChart').getContext('2d'), {
+    type:'line',
+    data:{datasets:[
+      {label:'Motoring envelope', data:speeds.map((n,i)=>({x:n, y:t_motor[i]})), borderColor:'#f59e0b', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'Braking envelope',  data:speeds.map((n,i)=>({x:n, y:t_brake[i]})), borderColor:'#38bdf8', backgroundColor:'transparent', borderWidth:2, pointRadius:0, borderDash:[5,3]},
+      {label:'Operating point',   data:[{x:speed, y:r.T_rated * torqPc/100}], borderColor:'#4ade80', backgroundColor:'#4ade80', pointRadius:8, showLine:false},
+    ]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{type:'linear', title:{display:true, text:'Speed (rpm)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}, min:0, max:P.Nr*1.05},
+        y:{title:{display:true, text:'Torque (N·m)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}, min:0},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  // Duty ratio vs speed
+  const dutyM = speeds.map(n => {
+    const r2 = calcMotor({...P, Nop:n});
+    return {x:n, y:Math.max(0, Math.min(1, r2.delta_m))};
+  });
+  const dutyB = speeds.map(n => {
+    const r2 = calcMotor({...P, Nop:n});
+    return {x:n, y:Math.max(0, Math.min(1, r2.delta_b))};
+  });
+  destroyChart('dutyChart');
+  charts.dutyChart = new Chart(document.getElementById('dutyChart').getContext('2d'), {
+    type:'line',
+    data:{datasets:[
+      {label:'δ motoring', data:dutyM, borderColor:'#f59e0b', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'δ braking',  data:dutyB, borderColor:'#38bdf8', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'Op. point',  data:[{x:speed, y:delta}], borderColor:'#4ade80', backgroundColor:'#4ade80', pointRadius:8, showLine:false},
+    ]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{type:'linear', title:{display:true, text:'Speed (rpm)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}, min:0, max:P.Nr*1.05},
+        y:{title:{display:true, text:'Duty Ratio δ', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}, min:0, max:1},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  // Stats
+  const Ia = P.Ir * torqPc/100;
+  const P_elec = mode === 'motor' ? P.Vs * Ia * delta : -P.Vs * Ia * (1-delta);
+  const P_loss = Ia*Ia * P.Ra;
+  document.getElementById('sim_stats').innerHTML = [
+    ['Mode',    mode === 'motor' ? '⚡ Motoring' : '♻️ Braking'],
+    ['δ',       delta.toFixed(4)],
+    ['Va_avg',  (delta * P.Vs).toFixed(1) + ' V'],
+    ['E_back',  r.Eback_op.toFixed(1) + ' V'],
+    ['I_a',     Ia.toFixed(1) + ' A'],
+    ['T_em',    (r.T_rated*torqPc/100).toFixed(1) + ' N·m'],
+    ['P_loss',  P_loss.toFixed(0) + ' W'],
+    ['ηeff',    mode==='motor' ? (r.eta*100).toFixed(1)+'%' : 'Regenerating'],
+  ].map(([k,v]) => `<div class="bg-slate-700 rounded p-2"><p class="text-slate-400 text-xs">${k}</p><p class="result-val">${v}</p></div>`).join('');
+}
+
+// ═══════════════════════ TAB 3 — Fault Current ═══════════════════════════════
+function renderFaultChart() {
+  const vmul   = parseFloat(document.getElementById('fc_vmul').value);
+  const alpha  = parseFloat(document.getElementById('fc_alpha').value) * Math.PI/180;
+  const ftype  = document.getElementById('fc_type').value;
+  document.getElementById('fc_vmul_val').textContent = vmul.toFixed(2);
+  document.getElementById('fc_alpha_val').textContent = (alpha*180/Math.PI).toFixed(0);
+
+  const Va = P.Vs * vmul;
+  const tau = P.La / P.Ra;        // electrical time constant
+  const N = 400, T_end = 0.5;
+  const labels = [], iData = [];
+
+  for (let i = 0; i < N; i++) {
+    const t = i * T_end / (N-1);
+    let iFault = 0;
+    if (ftype === 'armature') {
+      // short-circuit: i(t) = Va/Ra*(1-e^-t/tau) minus back-EMF contribution
+      // mechanical time constant τ_m = J·Ra/(Kφ²) ≈ 0.3 s for this motor
+      const tau_m = P.J * P.Ra / Math.pow(calcMotor(P).Kphi, 2);
+      const Eback = calcMotor({...P, Nop: P.Nr}).Eback_rated * Math.exp(-t / tau_m);
+      iFault = (Va - Eback * Math.exp(-t/tau)) / P.Ra * (1 - Math.exp(-t/tau));
+    } else if (ftype === 'supply') {
+      // supply removed: free-decay of armature current
+      const I0 = P.Ir;
+      iFault = I0 * Math.exp(-t / tau);
+    } else {
+      // IGBT latch-up: full supply applied to static armature
+      iFault = Va / P.Ra * (1 - Math.exp(-t / tau));
+    }
+    labels.push((t*1000).toFixed(1));
+    iData.push(Math.min(iFault, Va/P.Ra * 2));
+  }
+
+  const I_peak = Math.max(...iData);
+  const I_ss   = iData[iData.length-1];
+  document.getElementById('fault_stats').innerHTML = [
+    ['Type', ftype],
+    ['I_peak', I_peak.toFixed(0) + ' A'],
+    ['I_ss (steady)', I_ss.toFixed(0) + ' A'],
+    ['τ = La/Ra', (tau*1000).toFixed(1) + ' ms'],
+  ].map(([k,v]) => `<div class="bg-slate-700 rounded p-2 text-xs"><p class="text-slate-400">${k}</p><p class="result-val">${v}</p></div>`).join('');
+
+  destroyChart('faultChart');
+  charts.faultChart = new Chart(document.getElementById('faultChart').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[{label:'Fault Current (A)', data:iData, borderColor:'#f87171', backgroundColor:'#f8717122', borderWidth:2, pointRadius:0, fill:true}]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true, text:'Time (ms)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+        y:{title:{display:true, text:'Current (A)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+}
+
+// ═══════════════════════ TAB 4 — Protection ══════════════════════════════════
+function renderProtChart() {
+  const tms    = parseFloat(document.getElementById('prot_tms').value);
+  const is_mul = parseFloat(document.getElementById('prot_is').value);
+  const In     = parseFloat(document.getElementById('prot_in').value);
+  document.getElementById('prot_tms_val').textContent = tms.toFixed(2);
+  document.getElementById('prot_is_val').textContent  = is_mul.toFixed(1);
+  document.getElementById('prot_in_val').textContent  = In;
+  const Is = is_mul * In;
+
+  const curves = [
+    {label:'Normal Inverse',  k:0.14, a:0.02, color:'#38bdf8'},
+    {label:'Very Inverse',    k:13.5, a:1,    color:'#4ade80'},
+    {label:'Extremely Inv.',  k:80,   a:2,    color:'#f472b6'},
+  ];
+  const Imults = Array.from({length:100}, (_,i) => 1.05 + i * 0.25);
+  const datasets = curves.map(c => ({
+    label: c.label,
+    data: Imults.map(m => {
+      const denom = Math.pow(m, c.a) - 1;
+      return denom > 0 ? {x: m*Is, y: Math.min(tms*c.k/denom, 100)} : null;
+    }).filter(Boolean),
+    borderColor:c.color, backgroundColor:'transparent', borderWidth:2, pointRadius:0,
+  }));
+
+  // Motor inrush: DC motor can have ~5-8× In on direct start (before chopper limits it)
+  const I_start = Math.min(P.Vs / P.Ra, P.Ir * 7);
+  datasets.push({
+    label:'DC Motor Inrush', data:[{x:I_start, y:0.001},{x:I_start, y:5}],
+    borderColor:'#fbbf24', borderDash:[5,5], pointRadius:0, borderWidth:2,
+  });
+  // Overcurrent pickup
+  datasets.push({
+    label:'Pickup I_s', data:[{x:Is, y:0.001},{x:Is, y:100}],
+    borderColor:'#94a3b8', borderDash:[3,3], pointRadius:0, borderWidth:1,
+  });
+
+  destroyChart('protChart');
+  charts.protChart = new Chart(document.getElementById('protChart').getContext('2d'), {
+    type:'scatter',
+    data:{datasets},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{type:'logarithmic', title:{display:true, text:'Current (A)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+        y:{type:'logarithmic', title:{display:true, text:'Trip Time (s)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}, min:0.01, max:100},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0', boxWidth:10}}}
+    }
+  });
+
+  document.getElementById('prot_advice').innerHTML = `
+    <p class="text-amber-300 font-bold mb-1">Recommended Settings (DC Motor, Chopper-fed):</p>
+    <p>• <b>Overcurrent pickup</b>: 1.1–1.5 × I_n = <b>${(1.25*In).toFixed(0)} A</b></p>
+    <p>• <b>Instantaneous pickup</b>: 7–10 × I_n = <b>${(8*In).toFixed(0)} A</b></p>
+    <p>• <b>Motor locked-rotor</b>: Ia_max = Vs/Ra = <b>${(P.Vs/P.Ra).toFixed(0)} A</b> (without chopper limiting)</p>
+    <p>• With chopper current limiting, max current is typically set to 1.5–2×I_n = <b>${(1.75*In).toFixed(0)} A</b>.</p>
+    <p class="mt-1">• <b>Thermal element</b>: set for insulation class B (130°C) or F (155°C).</p>
+    <p class="mt-1 text-slate-400">IEC 60255-151 governs motor protection relay co-ordination. TMS should be set to clear fault <i>before</i> thermal damage but <i>after</i> normal acceleration.</p>`;
+}
+
+// ═══════════════════════ TAB 5 — Speed Controller ════════════════════════════
+function renderControllerCharts() {
+  renderPIDChart();
+  renderFuzzyCharts();
+  renderCompareChart();
+}
+
+function simMotor(Kp, Ki, Kd, useFuzzy, TL_step, t_step) {
+  const dt = 0.005, T_end = 5;
+  const N = Math.floor(T_end / dt);
+  const r = calcMotor(P);
+  const Ke = r.Kphi;
+  let omega = 0, integError = 0, prevError = 0;
+  const w_ref = t => t < 0.3 ? 350 * Math.PI / 30 : P.Nr * Math.PI / 30;
+  const labels = [], speedData = [], refData = [], torqData = [];
+  for (let i = 0; i < N; i++) {
+    const t = i * dt;
+    const TL = t < t_step ? 0 : TL_step;
+    const wR = w_ref(t);
+    const err = wR - omega;
+    integError = Math.max(-2000, Math.min(2000, integError + err * dt));
+    const dErr = (err - prevError) / dt; prevError = err;
+    let Iq;
+    if (useFuzzy) {
+      const norm_e = Math.max(-1, Math.min(1, err / (P.Nr * Math.PI / 30)));
+      Iq = Math.max(-P.Ir*1.5, Math.min(P.Ir*1.5, 25*norm_e + 0.5*dErr));
+    } else {
+      Iq = Math.max(-P.Ir*1.5, Math.min(P.Ir*1.5, Kp*err + Ki*integError + Kd*dErr));
+    }
+    const Te = Ke * Iq;
+    omega = Math.max(0, omega + (Te - TL - P.B * omega) / P.J * dt);
+    if (i % 2 === 0) {
+      labels.push(t.toFixed(3));
+      speedData.push(omega * 30 / Math.PI);
+      refData.push(wR * 30 / Math.PI);
+      torqData.push(Te);
+    }
+  }
+  return {labels, speedData, refData, torqData};
+}
+
+function renderPIDChart() {
+  const Kp = parseFloat(document.getElementById('pid_kp').value);
+  const Ki = parseFloat(document.getElementById('pid_ki').value);
+  const Kd = parseFloat(document.getElementById('pid_kd').value);
+  const TL = parseFloat(document.getElementById('step_tl').value);
+  const tst= parseFloat(document.getElementById('step_t').value);
+  document.getElementById('pid_kp_val').textContent = Kp.toFixed(1);
+  document.getElementById('pid_ki_val').textContent = Ki.toFixed(3);
+  document.getElementById('pid_kd_val').textContent = Kd.toFixed(3);
+  document.getElementById('step_tl_val').textContent = TL;
+  document.getElementById('step_t_val').textContent  = tst.toFixed(1);
+
+  const {labels, speedData, refData} = simMotor(Kp, Ki, Kd, false, TL, tst);
+  destroyChart('pidChart');
+  charts.pidChart = new Chart(document.getElementById('pidChart').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[
+      {label:'PID Speed (rpm)', data:speedData, borderColor:'#f59e0b', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'Reference (rpm)', data:refData, borderColor:'#cbd5e1', borderDash:[5,3], borderWidth:1.5, pointRadius:0, backgroundColor:'transparent'},
+    ]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true, text:'Time (s)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8', maxTicksLimit:10}},
+        y:{title:{display:true, text:'Speed (rpm)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+}
+
+function renderFuzzyCharts() {
+  const x = Array.from({length:200}, (_,i) => -1 + i * 2/199);
+  const mfs = [
+    {label:'NB', center:-1,   color:'#ef4444'},
+    {label:'NM', center:-0.5, color:'#fb923c'},
+    {label:'Z',  center:0,    color:'#4ade80'},
+    {label:'PM', center:0.5,  color:'#60a5fa'},
+    {label:'PB', center:1,    color:'#c084fc'},
+  ];
+  const tri = (c,w,xi) => Math.max(0, 1 - Math.abs(xi - c) / w);
+  destroyChart('fuzzyMFChart');
+  charts.fuzzyMFChart = new Chart(document.getElementById('fuzzyMFChart').getContext('2d'), {
+    type:'line',
+    data:{labels:x.map(v=>v.toFixed(2)), datasets:mfs.map(m=>({
+      label:m.label, data:x.map(xi=>tri(m.center, 0.5, xi)),
+      borderColor:m.color, backgroundColor:m.color+'44', borderWidth:2, pointRadius:0, fill:true,
+    }))},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:8},grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'},max:1.2}},
+      plugins:{legend:{labels:{color:'#e2e8f0',boxWidth:10}}, title:{display:true, text:'Fuzzy Membership Functions', color:'#94a3b8'}}
+    }
+  });
+
+  const TL  = parseFloat(document.getElementById('step_tl').value);
+  const tst = parseFloat(document.getElementById('step_t').value);
+  const {labels, speedData} = simMotor(0, 0, 0, true, TL, tst);
+  destroyChart('fuzzyChart');
+  charts.fuzzyChart = new Chart(document.getElementById('fuzzyChart').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[{label:'Fuzzy Speed (rpm)', data:speedData, borderColor:'#4ade80', backgroundColor:'transparent', borderWidth:2, pointRadius:0}]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true, text:'Time (s)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8',maxTicksLimit:10}},
+        y:{title:{display:true, text:'Speed (rpm)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+}
+
+function renderCompareChart() {
+  const Kp = parseFloat(document.getElementById('pid_kp').value);
+  const Ki = parseFloat(document.getElementById('pid_ki').value);
+  const Kd = parseFloat(document.getElementById('pid_kd').value);
+  const TL = parseFloat(document.getElementById('step_tl').value);
+  const tst= parseFloat(document.getElementById('step_t').value);
+  const pid = simMotor(Kp, Ki, Kd, false, TL, tst);
+  const fuz = simMotor(0, 0, 0, true, TL, tst);
+  destroyChart('compareChart');
+  charts.compareChart = new Chart(document.getElementById('compareChart').getContext('2d'), {
+    type:'line',
+    data:{labels:pid.labels, datasets:[
+      {label:'PID Speed (rpm)',   data:pid.speedData, borderColor:'#f59e0b', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'Fuzzy Speed (rpm)', data:fuz.speedData, borderColor:'#4ade80', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'Reference (rpm)',   data:pid.refData,   borderColor:'#cbd5e1', borderDash:[5,3], borderWidth:1.5, pointRadius:0, backgroundColor:'transparent'},
+    ]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true, text:'Time (s)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8',maxTicksLimit:10}},
+        y:{title:{display:true, text:'Speed (rpm)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}, title:{display:true, text:'PID vs Fuzzy — Step Load Comparison', color:'#94a3b8'}}
+    }
+  });
+}
+
+// ═══════════════════════ TAB 6 — Thermal ═════════════════════════════════════
+function renderThermalChart() {
+  const Ta   = parseFloat(document.getElementById('th_ta').value);
+  const lf   = parseFloat(document.getElementById('th_lf').value);
+  const Rth1 = parseFloat(document.getElementById('th_r1').value);
+  const Rth2 = parseFloat(document.getElementById('th_r2').value);
+  document.getElementById('th_ta_val').textContent = Ta;
+  document.getElementById('th_lf_val').textContent = lf.toFixed(2);
+  document.getElementById('th_r1_val').textContent = Rth1.toFixed(2);
+  document.getElementById('th_r2_val').textContent = Rth2.toFixed(2);
+
+  // Copper losses + iron losses
+  // Iron loss ≈ 0.5% of Vs × rated kW (P_Vs * iron_loss_pct * rated_kW_approx)
+  const IRON_LOSS_PCT = 0.005;    // 0.5% iron loss coefficient (typical for DC machines)
+  const RATED_KW_APPROX = 46;     // ≈ Vs×Ir/1000 = 230×200/1000 = 46 kW (rated output)
+  const P_cu   = P.Ir * P.Ir * P.Ra * lf*lf;                   // I²R copper loss (W)
+  const P_iron = P.Vs * IRON_LOSS_PCT * RATED_KW_APPROX;       // ~5% of rated power (W)
+  const P_loss = P_cu + P_iron;
+  const Cth1 = 500, Cth2 = 5000;                     // thermal capacitances (J/K)
+  const dt = 5, T_end = 3600, N = Math.floor(T_end/dt);
+  let T1 = Ta, T2 = Ta;
+  const labels = [], d1 = [], d2 = [];
+  for (let i = 0; i < N; i++) {
+    const q12 = (T1 - T2) / Rth1;
+    const q2a = (T2 - Ta) / Rth2;
+    T1 = Math.min(300, T1 + (P_loss - q12) / Cth1 * dt);
+    T2 = Math.min(250, T2 + (q12 - q2a) / Cth2 * dt);
+    if (i % Math.floor(N/100) === 0) {
+      labels.push((i*dt/60).toFixed(0));
+      d1.push(+T1.toFixed(1));
+      d2.push(+T2.toFixed(1));
+    }
+  }
+  const T1_ss = Ta + P_loss * (Rth1 + Rth2);         // steady-state winding
+  const T2_ss = Ta + P_loss * Rth2;
+
+  destroyChart('thermalChart');
+  charts.thermalChart = new Chart(document.getElementById('thermalChart').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Winding Temp (°C)', data:d1, borderColor:'#ef4444', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'Frame Temp (°C)',   data:d2, borderColor:'#fb923c', backgroundColor:'transparent', borderWidth:2, pointRadius:0},
+      {label:'Class B 130°C', data:labels.map(()=>130), borderColor:'#fbbf24', borderDash:[5,3], borderWidth:1, pointRadius:0},
+      {label:'Class F 155°C', data:labels.map(()=>155), borderColor:'#f97316', borderDash:[5,3], borderWidth:1, pointRadius:0},
+      {label:'Class H 180°C', data:labels.map(()=>180), borderColor:'#ef4444', borderDash:[5,3], borderWidth:1, pointRadius:0},
+    ]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true, text:'Time (min)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8', maxTicksLimit:12}},
+        y:{title:{display:true, text:'Temperature (°C)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0',boxWidth:10}}}
+    }
+  });
+
+  const insClass = T1_ss < 130 ? {c:'B',lim:130,badge:'badge-ok'} : T1_ss < 155 ? {c:'F',lim:155,badge:'badge-warn'} : {c:'H',lim:180,badge:'badge-fail'};
+  document.getElementById('thermal_stats').innerHTML = [
+    ['P_copper loss',   P_cu.toFixed(0) + ' W'],
+    ['P_iron loss',     P_iron.toFixed(0) + ' W'],
+    ['Total loss',      P_loss.toFixed(0) + ' W'],
+    ['T_winding (ss)',  T1_ss.toFixed(0) + ' °C'],
+    ['T_frame (ss)',    T2_ss.toFixed(0) + ' °C'],
+    ['Insulation class',`<span class="badge ${insClass.badge}">${insClass.c} (${insClass.lim}°C)</span>`],
+  ].map(([k,v]) => `<div class="bg-slate-700 rounded p-2 text-xs"><p class="text-slate-400">${k}</p><p class="result-val">${v}</p></div>`).join('');
+}
+
+// ═══════════════════════ TAB 7 — Economic ════════════════════════════════════
+function renderEconChart() {
+  const price    = parseFloat(document.getElementById('eco_price').value);
+  const hrs      = parseFloat(document.getElementById('eco_hrs').value);
+  const kW       = parseFloat(document.getElementById('eco_kw').value);
+  const eff_base = parseFloat(document.getElementById('eco_eff').value) / 100;
+  document.getElementById('eco_price_val').textContent = price.toFixed(2);
+  document.getElementById('eco_hrs_val').textContent   = hrs;
+  document.getElementById('eco_kw_val').textContent    = kW;
+  document.getElementById('eco_eff_val').textContent   = (eff_base*100).toFixed(1);
+
+  const loads = [25, 50, 75, 100, 125];
+  const effVals = loads.map(l => {
+    const lf = l / 100;
+    const P_cu   = P.Ir * P.Ir * P.Ra * lf*lf / 1000;
+    const P_iron = kW * 0.02;
+    const P_out  = kW * lf;
+    const P_in   = P_out + P_cu + P_iron;
+    return Math.min(99.5, P_out / P_in * 100);
+  });
+  const costVals = loads.map((l,i) => {
+    const P_in_kW = kW * l/100 / (effVals[i]/100);
+    return P_in_kW * hrs * price;
+  });
+
+  destroyChart('econEffChart');
+  charts.econEffChart = new Chart(document.getElementById('econEffChart').getContext('2d'), {
+    type:'bar',
+    data:{labels:loads.map(l=>l+'%'), datasets:[{label:'Efficiency (%)', data:effVals.map(v=>v.toFixed(1)), backgroundColor:'#f59e0baa', borderColor:'#f59e0b', borderWidth:2}]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}}, y:{min:80, max:100, ticks:{color:'#94a3b8'},grid:{color:'#334155'},title:{display:true,text:'Efficiency (%)',color:'#94a3b8'}}},
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  destroyChart('econCostChart');
+  charts.econCostChart = new Chart(document.getElementById('econCostChart').getContext('2d'), {
+    type:'line',
+    data:{labels:loads.map(l=>l+'%'), datasets:[{label:'Annual Cost ($)', data:costVals.map(v=>v.toFixed(0)), borderColor:'#4ade80', backgroundColor:'#4ade8033', borderWidth:2, pointRadius:4, fill:true}]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'},title:{display:true,text:'Annual Cost ($)',color:'#94a3b8'}}},
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  const fullCost  = kW / eff_base * hrs * price;
+  // Regenerative braking typically saves 5–15%; 8% is a conservative midpoint (IEA/EPRI estimates)
+  const REGEN_SAVINGS_PCT = 0.08;
+  // Chopper drive unit cost estimate: ~$80/kW installed (ABB/Siemens indicative 2024 pricing)
+  const DRIVE_COST_PER_KW = 80;   // USD per kW
+  // Grid carbon intensity: 0.5 kg CO₂/kWh is the global average (IEA 2023)
+  const CO2_KG_PER_KWH = 0.5;
+  const regen_save = fullCost * REGEN_SAVINGS_PCT;
+  const drive_cost = kW * DRIVE_COST_PER_KW;
+  const payback    = regen_save > 0 ? drive_cost / regen_save : Infinity;
+  const co2        = kW / eff_base * hrs * CO2_KG_PER_KWH;
+
+  document.getElementById('econ_summary').innerHTML = [
+    ['Annual Energy Cost',        '$' + fullCost.toFixed(0)],
+    ['Regen Braking Savings (8%)', '$' + regen_save.toFixed(0)],
+    ['Chopper Drive Payback',     payback.toFixed(1) + ' yrs'],
+    ['CO₂ Emissions/yr',          (co2/1000).toFixed(1) + ' t'],
+  ].map(([k,v]) => `<div class="bg-slate-700 rounded p-2 text-xs"><p class="text-slate-400">${k}</p><p class="result-val">${v}</p></div>`).join('');
+}
+
+// ═══════════════════════ TAB 8 — Harmonics ═══════════════════════════════════
+function renderHarmonicCharts() {
+  const delta = parseFloat(document.getElementById('hm_delta').value);
+  const fch   = parseFloat(document.getElementById('hm_fch').value) * 1000;
+  const vrip  = parseFloat(document.getElementById('hm_vrip').value) / 100;
+  document.getElementById('hm_delta_val').textContent = delta.toFixed(3);
+  document.getElementById('hm_fch_val').textContent   = (fch/1000).toFixed(1);
+  document.getElementById('hm_vrip_val').textContent  = (vrip*100).toFixed(0);
+
+  // Chopper voltage waveform (ideal square wave)
+  const Npts = 500, periods = 3;
+  const Tch = 1 / fch;
+  const labels = [], wave = [];
+  for (let i = 0; i < Npts; i++) {
+    const t = i / Npts * periods * Tch;
+    const tmod = (t % Tch) / Tch;
+    const v = tmod < delta ? P.Vs : 0;
+    labels.push((t * 1e6).toFixed(2));
+    wave.push(v + vrip * P.Vs * (Math.random() - 0.5) * 0.2);
+  }
+
+  destroyChart('harmonicWave');
+  charts.harmonicWave = new Chart(document.getElementById('harmonicWave').getContext('2d'), {
+    type:'line',
+    data:{labels, datasets:[{label:'Chopper Va (V)', data:wave, borderColor:'#f59e0b', backgroundColor:'#f59e0b22', borderWidth:1.5, pointRadius:0, fill:true}]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true, text:'Time (μs)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8', maxTicksLimit:8}},
+        y:{title:{display:true, text:'Va (V)', color:'#94a3b8'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  // Fourier coefficients of square wave with duty δ
+  // a_n = (2*Vs/(n*pi)) * sin(n*pi*delta)
+  const harmonics = [1,2,3,4,5,6,7,8,9,10];
+  const ampls = harmonics.map(n => {
+    const an = (2 * P.Vs / (n * Math.PI)) * Math.abs(Math.sin(n * Math.PI * delta));
+    return +(an.toFixed(2));
+  });
+  const harmLabels = harmonics.map(n => n + '×f');
+
+  destroyChart('harmonicSpectrum');
+  charts.harmonicSpectrum = new Chart(document.getElementById('harmonicSpectrum').getContext('2d'), {
+    type:'bar',
+    data:{labels:harmLabels, datasets:[{label:'Harmonic Amplitude (V)', data:ampls,
+      backgroundColor:['#f59e0b','#ef4444','#fb923c','#a78bfa','#38bdf8','#4ade80','#f472b6','#60a5fa','#fbbf24','#34d399'],
+      borderWidth:1}]},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}},
+        y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'},title:{display:true, text:'Amplitude (V)', color:'#94a3b8'}},
+      },
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  // THD calculation
+  const Vdc = delta * P.Vs;
+  const harmSum = harmonics.slice(1).reduce((s,n,i) => s + ampls[i+1]**2, 0);
+  const THD = (Math.sqrt(harmSum) / (Vdc > 0 ? Vdc : 1) * 100);
+  const ripple_I = P.Vs / (P.La * fch) * delta * (1 - delta); // peak-to-peak ripple current
+
+  document.getElementById('harmonic_stats').innerHTML = [
+    ['V_dc (avg)',     Vdc.toFixed(1) + ' V'],
+    ['Voltage THD',   THD.toFixed(1) + '%'],
+    ['Ripple ΔI (pk-pk)', ripple_I.toFixed(1) + ' A'],
+    ['IEC / IEEE 519', THD < 20 ? '<span class="badge badge-ok">PASS</span>' : '<span class="badge badge-fail">FAIL</span>'],
+  ].map(([k,v]) => `<div class="bg-slate-700 rounded p-2 text-xs"><p class="text-slate-400">${k}</p><p class="result-val">${v}</p></div>`).join('');
+}
+
+// ═══════════════════════ TAB 9 — Summary ═════════════════════════════════════
+function renderSummaryTab() {
+  const r = calcMotor(P);
+  const items = [
+    {label:'Motor rating',              val:`${P.Vs} V, ${P.Nr} rpm, ${P.Ir} A`, color:'#94a3b8'},
+    {label:'Ra armature resistance',    val:`${P.Ra.toFixed(3)} Ω`,              color:'#94a3b8'},
+    {label:'Back-EMF @ rated',          val:`${r.Eback_rated.toFixed(2)} V`,      color:'#38bdf8'},
+    {label:'Motor constant Kφ',         val:`${r.Kphi.toFixed(4)} V·s/rad`,      color:'#38bdf8'},
+    {label:'Back-EMF @ ' + P.Nop + ' rpm', val:`${r.Eback_op.toFixed(2)} V`,    color:'#4ade80'},
+    {label:'Va motoring @ ' + P.Nop + ' rpm', val:`${r.Va_motor.toFixed(2)} V`, color:'#f59e0b'},
+    {label:'Va braking @ ' + P.Nop + ' rpm',  val:`${r.Va_brake.toFixed(2)} V`, color:'#38bdf8'},
+    {label:'★ (i) δ MOTORING',           val:`${r.delta_m.toFixed(4)} (${(r.delta_m*100).toFixed(2)}%)`, color:'#f59e0b'},
+    {label:'★ (ii) δ BRAKING',           val:`${r.delta_b.toFixed(4)} (${(r.delta_b*100).toFixed(2)}%)`, color:'#38bdf8'},
+    {label:'Rated Torque',               val:`${r.T_rated.toFixed(1)} N·m`,       color:'#c084fc'},
+    {label:'P_out @ op speed',           val:`${(r.P_out/1000).toFixed(2)} kW`,   color:'#4ade80'},
+    {label:'Motoring Efficiency',        val:`${(r.eta*100).toFixed(1)}%`,         color:'#4ade80'},
+  ];
+  document.getElementById('summary_cards').innerHTML = items.map(it =>
+    `<div class="flex justify-between bg-slate-700 rounded px-3 py-2">
+       <span class="text-slate-300 text-sm">${it.label}</span>
+       <span class="font-bold text-sm" style="color:${it.color}">${it.val}</span>
+     </div>`
+  ).join('');
+
+  // Radar chart
+  const normalized = [
+    r.delta_m * 100, (1 - r.delta_b) * 100,
+    (r.Eback_op / P.Vs) * 100,
+    r.eta * 100,
+    (P.Nop / P.Nr) * 100,
+    (r.T_rated / (P.Vs * P.Ir / (P.Nr * Math.PI/30))) * 100,
+  ];
+  destroyChart('radarChart');
+  charts.radarChart = new Chart(document.getElementById('radarChart').getContext('2d'), {
+    type:'radar',
+    data:{
+      labels:['δ_motor %','(1-δ_brake)%','E/Vs %','η %','N_op/N_r %','T norm %'],
+      datasets:[{label:'Operating Point', data:normalized,
+        borderColor:'#f59e0b', backgroundColor:'#f59e0b33', pointBackgroundColor:'#f59e0b'}]
+    },
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{r:{ticks:{color:'#94a3b8', backdropColor:'transparent'}, grid:{color:'#334155'}, pointLabels:{color:'#e2e8f0'}}},
+      plugins:{legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  // Four-quadrant operating diagram
+  const quadData = [
+    {label:'Q1 Motoring',     data:[{x:350, y:r.T_rated}],  pointBackgroundColor:'#f59e0b', pointRadius:12},
+    {label:'Q2 Reg Braking',  data:[{x:350, y:-r.T_rated}], pointBackgroundColor:'#38bdf8', pointRadius:12},
+    {label:'Q3 Rev Motoring', data:[{x:-350, y:-r.T_rated}],pointBackgroundColor:'#a78bfa', pointRadius:8},
+    {label:'Q4 Rev Braking',  data:[{x:-350, y:r.T_rated}], pointBackgroundColor:'#4ade80', pointRadius:8},
+  ];
+  destroyChart('quadrantChart');
+  charts.quadrantChart = new Chart(document.getElementById('quadrantChart').getContext('2d'), {
+    type:'scatter',
+    data:{datasets: quadData.map(d => ({...d, showLine:false}))},
+    options:{responsive:true, maintainAspectRatio:true,
+      scales:{
+        x:{title:{display:true, text:'Speed (rpm)', color:'#94a3b8'}, grid:{color:'#475569'}, ticks:{color:'#94a3b8'},
+           min:-P.Nr*0.5, max:P.Nr*0.5,
+           afterDataLimits(axis){ axis.min = -P.Nr*0.5; axis.max = P.Nr*0.5; }},
+        y:{title:{display:true, text:'Torque (N·m)', color:'#94a3b8'}, grid:{color:'#475569'}, ticks:{color:'#94a3b8'},
+           min:-r.T_rated*1.5, max:r.T_rated*1.5},
+      },
+      plugins:{
+        legend:{labels:{color:'#e2e8f0',boxWidth:10}},
+        title:{display:true, text:'Four-Quadrant Chopper Operation', color:'#94a3b8'},
+      }
+    }
+  });
+}
+
+function printSummary() {
+  const r = calcMotor(P);
+  const text = `DC Motor Chopper Drive — Engineering Summary
+================================================
+Motor: ${P.Vs}V  ${P.Nr}rpm  ${P.Ir}A  Ra=${P.Ra}Ω
+
+Back-EMF @ rated:          ${r.Eback_rated.toFixed(2)} V
+Motor constant Kφ:          ${r.Kphi.toFixed(4)} V·s/rad
+Back-EMF @ ${P.Nop} rpm:  ${r.Eback_op.toFixed(2)} V
+
+(i)  MOTORING duty ratio:  ${r.delta_m.toFixed(4)}  (${(r.delta_m*100).toFixed(2)}%)
+(ii) BRAKING  duty ratio:  ${r.delta_b.toFixed(4)}  (${(r.delta_b*100).toFixed(2)}%)
+
+Rated Torque:  ${r.T_rated.toFixed(1)} N·m
+P_out @ op:    ${(r.P_out/1000).toFixed(2)} kW
+Efficiency:    ${(r.eta*100).toFixed(1)}%`;
+  const win = window.open('', '_blank');
+  win.document.write('<pre style="font-family:monospace;padding:2rem;font-size:14px">'+text+'</pre>');
+  win.print();
+}
+
+// ─── Initialise ───────────────────────────────────────────────────────────────
+(function init() {
+  updateLiveResults();
+})();
+</script>
+</body>
+</html>
