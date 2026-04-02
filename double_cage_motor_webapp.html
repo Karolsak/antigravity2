@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Double-Cage Induction Motor Advanced Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div class="max-w-7xl mx-auto px-4 py-4">
+    <h1 class="text-2xl font-bold text-cyan-300">⚡ Double-Cage Induction Motor — Advanced Analysis Web App</h1>
+    <p class="text-sm text-slate-400 mb-4">Single-file app with mathematical modeling, control, protection, fault, thermal, economic, and harmonics analysis.</p>
+
+    <div class="flex flex-wrap gap-2 mb-4" id="tabs"></div>
+
+    <div id="content" class="space-y-4"></div>
+  </div>
+
+<script>
+const state = {
+  E2: 100,
+  Rin: 0.05,
+  Xin: 0.4,
+  Rout: 0.5,
+  Xout: 0.1,
+  f: 50,
+  p: 4,
+  stepLoad: 80,
+  kp: 4,
+  ki: 6,
+  kd: 0.02,
+  h5: 20,
+  h7: 14,
+  h11: 9,
+  running: false,
+  timer: null,
+  sim: {t:[0], w:[0], te:[0]},
+};
+
+const tabList = [
+  "Main Menu", "Input & Sliders", "Modeling+Simulation", "Fault Current",
+  "Protection Coordination", "Speed Controller", "Thermal+Economic", "Harmonic+Quality", "Comprehensive"
+];
+
+const charts = {};
+
+function ws(){ return 4*Math.PI*state.f/state.p; }
+function clip(x,a,b){ return Math.max(a,Math.min(b,x)); }
+
+function cageCurrent(s, R, X){
+  const rs = R/clip(s,1e-4,1);
+  const den = rs*rs + X*X;
+  return {mag: state.E2/Math.sqrt(den), rs};
+}
+
+function syncWPerPhase(s){
+  const i1 = cageCurrent(s,state.Rin,state.Xin);
+  const i2 = cageCurrent(s,state.Rout,state.Xout);
+  return i1.mag*i1.mag*i1.rs + i2.mag*i2.mag*i2.rs;
+}
+
+function torqueNm(s){ return 3*syncWPerPhase(s)/ws(); }
+
+function createTabs(){
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = tabList.map((t,i)=>`<button class="px-3 py-1 rounded ${i===0?'bg-cyan-600':'bg-slate-700'}" onclick="showTab(${i})" id="tabBtn${i}">${t}</button>`).join('');
+}
+
+function slider(id,label,min,max,step,val,oninput){
+  return `<div class="bg-slate-800 rounded p-3"><label class="text-sm text-slate-300">${label}: <span id="${id}_v" class="text-cyan-300">${val}</span></label><input class="w-full" type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" oninput="${oninput}"></div>`;
+}
+
+function showTab(i){
+  tabList.forEach((_,k)=>document.getElementById(`tabBtn${k}`).className=`px-3 py-1 rounded ${k===i?'bg-cyan-600':'bg-slate-700'}`);
+  const c = document.getElementById("content");
+  if(i===0){
+    const p1 = syncWPerPhase(1), p2 = syncWPerPhase(0.05);
+    c.innerHTML = `
+    <div class="bg-slate-900 border border-slate-700 rounded p-4">
+      <h2 class="text-xl text-cyan-300 font-semibold">Detailed Solution (Electrical Engineering Context)</h2>
+      <p class="text-sm mt-2">For each cage branch, using standstill rotor emf E₂=100V per phase:</p>
+      <pre class="bg-slate-950 p-3 rounded text-xs mt-2 overflow-x-auto">I = E₂ / (R/s + jX)
+P_sync,phase = |I_inner|²(R_inner/s) + |I_outer|²(R_outer/s)</pre>
+      <p class="mt-2">Standstill (s=1): <span class="text-emerald-300 font-bold">${p1.toFixed(2)} synchronous W/phase</span></p>
+      <p>Slip 5% (s=0.05): <span class="text-emerald-300 font-bold">${p2.toFixed(2)} synchronous W/phase</span></p>
+      <p class="text-sm text-slate-300 mt-2">Interpretation: high-resistance outer cage contributes strongly at start; low-resistance inner cage supports efficient running condition at low slip.</p>
+      <div class="mt-3 flex gap-2">
+        <button class="bg-emerald-600 px-3 py-1 rounded" onclick="startSim()">Start</button>
+        <button class="bg-amber-600 px-3 py-1 rounded" onclick="stopSim()">Stop</button>
+        <button class="bg-rose-600 px-3 py-1 rounded" onclick="resetSim()">Reset</button>
+      </div>
+    </div>`;
+  }
+  if(i===1){
+    c.innerHTML = `<div class="grid md:grid-cols-2 gap-3">
+      ${slider('E2','E₂ (V/phase)',20,250,1,state.E2,'updNum("E2")')}
+      ${slider('Rin','Inner cage R (Ω)',0.01,1,0.01,state.Rin,'updNum("Rin")')}
+      ${slider('Xin','Inner cage X (Ω)',0.01,1,0.01,state.Xin,'updNum("Xin")')}
+      ${slider('Rout','Outer cage R (Ω)',0.01,2,0.01,state.Rout,'updNum("Rout")')}
+      ${slider('Xout','Outer cage X (Ω)',0.01,1,0.01,state.Xout,'updNum("Xout")')}
+      ${slider('stepLoad','Step load (N·m)',10,200,1,state.stepLoad,'updNum("stepLoad")')}
+    </div>`;
+  }
+  if(i===2){
+    c.innerHTML = `<div class="bg-slate-900 rounded p-3 border border-slate-700"><canvas id="mChart"></canvas></div>`;
+    charts.m = lineChart('mChart','Speed (rpm)',[],[]);
+    drawModel();
+  }
+  if(i===3){
+    c.innerHTML = `<div class="bg-slate-900 rounded p-3 border border-slate-700"><canvas id="fChart"></canvas></div>`;
+    drawFault();
+  }
+  if(i===4){
+    c.innerHTML = `<div class="bg-slate-900 rounded p-3 border border-slate-700"><canvas id="pChart"></canvas></div>`;
+    drawProtection();
+  }
+  if(i===5){
+    c.innerHTML = `<div class="grid md:grid-cols-3 gap-3 mb-3">
+      ${slider('kp','Kp',0.1,20,0.1,state.kp,'updNum("kp");drawSpeedCtrl()')}
+      ${slider('ki','Ki',0.1,20,0.1,state.ki,'updNum("ki");drawSpeedCtrl()')}
+      ${slider('kd','Kd',0,2,0.01,state.kd,'updNum("kd");drawSpeedCtrl()')}
+    </div><div class="bg-slate-900 rounded p-3 border border-slate-700"><canvas id="sChart"></canvas></div>`;
+    drawSpeedCtrl();
+  }
+  if(i===6){
+    c.innerHTML = `<div class="grid md:grid-cols-2 gap-3"><div class="bg-slate-900 rounded p-3 border border-slate-700"><canvas id="tChart"></canvas></div><div class="bg-slate-900 rounded p-3 border border-slate-700"><canvas id="eChart"></canvas></div></div>`;
+    drawThermal(); drawEconomic();
+  }
+  if(i===7){
+    c.innerHTML = `<div class="grid md:grid-cols-3 gap-3 mb-3">
+      ${slider('h5','5th harmonic (%)',0,60,1,state.h5,'updNum("h5");drawHarmonics()')}
+      ${slider('h7','7th harmonic (%)',0,60,1,state.h7,'updNum("h7");drawHarmonics()')}
+      ${slider('h11','11th harmonic (%)',0,60,1,state.h11,'updNum("h11");drawHarmonics()')}
+    </div><div class="bg-slate-900 rounded p-3 border border-slate-700"><canvas id="hChart"></canvas></div><div id="pq" class="text-sm mt-2"></div>`;
+    drawHarmonics();
+  }
+  if(i===8){
+    const p1 = syncWPerPhase(1), p2 = syncWPerPhase(0.05);
+    c.innerHTML = `<div class="bg-slate-900 border border-slate-700 rounded p-4 text-sm">
+      <h3 class="text-cyan-300 text-lg">Comprehensive Analysis</h3>
+      <ul class="list-disc ml-5 mt-2 space-y-1">
+        <li>Standstill torque in synchronous watts/phase: <b>${p1.toFixed(2)}</b></li>
+        <li>5% slip torque in synchronous watts/phase: <b>${p2.toFixed(2)}</b></li>
+        <li>Estimated shaft torque: standstill <b>${torqueNm(1).toFixed(2)} N·m</b>, 5% slip <b>${torqueNm(0.05).toFixed(2)} N·m</b></li>
+        <li>Fault, protection and controller tabs allow practical engineering studies.</li>
+        <li>Overflow protection: slip clipping, state saturation, finite simulation step.</li>
+      </ul>
+    </div>`;
+  }
+}
+
+function updNum(k){
+  state[k] = parseFloat(document.getElementById(k).value);
+  document.getElementById(`${k}_v`).textContent = state[k];
+}
+
+function lineChart(id,label,labels,data){
+  const ctx = document.getElementById(id);
+  return new Chart(ctx,{type:'line',data:{labels,datasets:[{label,data,borderColor:'#22d3ee',pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#cbd5e1'}},y:{ticks:{color:'#cbd5e1'}}}}});
+}
+
+function startSim(){
+  if(state.running) return;
+  state.running=true;
+  state.timer=setInterval(()=>{
+    const dt=0.02;
+    const w=state.sim.w[state.sim.w.length-1];
+    const t=state.sim.t[state.sim.t.length-1];
+    const s=clip((ws()-w)/ws(),1e-4,1);
+    const te=torqueNm(s);
+    const tl=t>1?state.stepLoad:0.6*state.stepLoad;
+    const wn=clip(w + dt*(te-tl-0.02*w)/0.25,0,2*ws());
+    state.sim.t.push(t+dt); state.sim.w.push(wn); state.sim.te.push(te);
+  },20);
+}
+
+function stopSim(){ state.running=false; if(state.timer){clearInterval(state.timer);state.timer=null;} }
+function resetSim(){ stopSim(); state.sim={t:[0],w:[0],te:[0]}; drawModel(); }
+
+function drawModel(){
+  if(!charts.m) return;
+  charts.m.data.labels = state.sim.t.map(x=>x.toFixed(2));
+  charts.m.data.datasets[0].data = state.sim.w.map(x=>x*60/(2*Math.PI));
+  charts.m.update();
+}
+
+function drawFault(){
+  const t=[...Array(400)].map((_,i)=>i*0.0005);
+  const ip=clip(state.E2/Math.hypot(state.Rout,state.Xout),0,3000);
+  const y=t.map(tt=>ip*Math.exp(-20*tt)*Math.sin(2*Math.PI*50*tt));
+  charts.f = lineChart('fChart','Fault current (A)',t,y);
+}
+
+function drawProtection(){
+  const m=[...Array(260)].map((_,i)=>1.1+i*(20-1.1)/259);
+  const std=m.map(x=>0.14/Math.max(Math.pow(x,0.02)-1,1e-3));
+  const vi=m.map(x=>13.5/Math.max(x-1,1e-3));
+  charts.p = new Chart(document.getElementById('pChart'),{type:'line',data:{labels:m,datasets:[{label:'IEC NI',data:std,borderColor:'#fbbf24',pointRadius:0},{label:'IEC VI',data:vi,borderColor:'#60a5fa',pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{type:'logarithmic',ticks:{color:'#cbd5e1'}},x:{ticks:{color:'#cbd5e1'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}});
+}
+
+function drawSpeedCtrl(){
+  const t=[...Array(700)].map((_,i)=>i*0.01), wref=0.95*ws();
+  const pid=Array(t.length).fill(0), fz=Array(t.length).fill(0);
+  let ei=0, ep=0;
+  for(let k=1;k<t.length;k++){
+    const tl=t[k]>2?state.stepLoad:0.6*state.stepLoad;
+    const e=wref-pid[k-1]; ei=clip(ei+e*0.01,-500,500); const ed=(e-ep)/0.01;
+    const u=state.kp*e+state.ki*ei+state.kd*ed; pid[k]=clip(pid[k-1]+0.01*(u-tl)/50,0,2*ws()); ep=e;
+    const ef=wref-fz[k-1], g=Math.abs(ef)>15?5:2; const uf=g*ef; fz[k]=clip(fz[k-1]+0.01*(uf-tl)/55,0,2*ws());
+  }
+  charts.s = new Chart(document.getElementById('sChart'),{type:'line',data:{labels:t,datasets:[{label:'PID rpm',data:pid.map(v=>v*60/(2*Math.PI)),borderColor:'#22d3ee',pointRadius:0},{label:'Fuzzy rpm',data:fz.map(v=>v*60/(2*Math.PI)),borderColor:'#f97316',pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#cbd5e1'}},y:{ticks:{color:'#cbd5e1'}}}}});
+}
+
+function drawThermal(){
+  const t=[...Array(400)].map((_,i)=>i*10);
+  const temp=t.map(tt=>25+4000*0.03*(1-Math.exp(-tt/(0.03*90000))));
+  charts.t = lineChart('tChart','Temperature (°C)',t.map(x=>x/60),temp);
+}
+
+function drawEconomic(){
+  const eff=[...Array(80)].map((_,i)=>0.8+i*(0.97-0.8)/79);
+  const c=eff.map(e=>75/e*6000*0.12/1000);
+  charts.e = lineChart('eChart','Cost (k$/year)',eff.map(e=>(e*100).toFixed(1)),c);
+}
+
+function drawHarmonics(){
+  const orders=[1,5,7,11], amps=[100,state.h5,state.h7,state.h11];
+  const thd=Math.sqrt(state.h5**2+state.h7**2+state.h11**2)/100*100;
+  charts.h = new Chart(document.getElementById('hChart'),{type:'bar',data:{labels:orders,datasets:[{label:'Current %',data:amps,backgroundColor:'#a78bfa'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#cbd5e1'}},y:{ticks:{color:'#cbd5e1'}}}}});
+  document.getElementById('pq').innerHTML = `Estimated THD = <b>${thd.toFixed(2)}%</b> ${thd<=5?'(Good IEEE519 margin)':'(Needs mitigation: filter/reactor)'}`;
+}
+
+window.addEventListener('resize', ()=>Object.values(charts).forEach(ch=>ch?.resize()));
+setInterval(drawModel,250);
+createTabs();
+showTab(0);
+</script>
+</body>
+</html>
