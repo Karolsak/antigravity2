@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>600 HP Induction Motor — Stator Design & Analysis</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body{background:#0f172a;color:#e2e8f0;font-family:'Segoe UI',sans-serif;}
+  .tab-btn{transition:all .2s;}
+  .tab-btn.active{background:#0ea5e9;color:#fff;}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:.75rem;}
+  input[type=range]{accent-color:#0ea5e9;width:100%;}
+  .result-val{color:#38bdf8;font-weight:700;}
+  .formula{background:#0f172a;border-left:3px solid #0ea5e9;padding:.5rem 1rem;margin:.4rem 0;font-family:monospace;font-size:.82rem;border-radius:0 .5rem .5rem 0;}
+  .answer{background:#052e16;border:1px solid #16a34a;border-radius:.5rem;padding:.6rem 1rem;margin:.4rem 0;}
+  canvas{max-width:100%;}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  select{background:#1e293b;border:1px solid #475569;border-radius:.375rem;color:#e2e8f0;padding:.25rem .5rem;}
+  .ch{position:relative;height:300px;}
+  .grid-kv>div{background:#1e293b;border:1px solid #334155;border-radius:.5rem;padding:.5rem .75rem;}
+</style>
+</head>
+<body class="min-h-screen p-3">
+<div class="max-w-7xl mx-auto">
+  <h1 class="text-2xl font-bold text-center mb-1 text-sky-400">⚡ 600 HP Induction Motor — Stator Design & Complete Engineering Analysis</h1>
+  <p class="text-center text-slate-400 text-xs mb-3">600 hp | 1160 r/min | 575 V | 3-phase | 60 Hz | 90 slots | D=20 in | L=16 in</p>
+
+  <!-- Tab Buttons -->
+  <div class="flex flex-wrap gap-1 mb-3">
+    <button class="tab-btn active px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(0)">📐 Stator Design</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(1)">⚙️ Parameters</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(2)">📈 Torque-Speed</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(3)">⚡ Fault Current</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(4)">🛡️ Protection</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(5)">🎛️ Speed Ctrl</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(6)">🌡️ Thermal</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(7)">💰 Economic</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(8)">〰️ Harmonics</button>
+    <button class="tab-btn px-2 py-1 text-xs rounded font-medium bg-slate-700" onclick="switchTab(9)">📊 Summary</button>
+  </div>
+
+  <!-- TAB 0: Stator Design -->
+  <div id="tab0" class="tab-content active">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">Problem Statement</h2>
+          <p class="text-slate-300 text-sm leading-relaxed">The stator of a <strong class="text-white">600 hp, 1160 r/min, 575 V, 3-phase, 60 Hz</strong> induction motor has <strong class="text-white">90 slots</strong>, an internal diameter of <strong class="text-white">20 inches</strong>, and an axial length of <strong class="text-white">16 inches</strong>. Calculate: (a) number of coils; (b) coils per phase; (c) coils per group; (d) coil pitch in mm; (e) area of one pole; (f) flux per pole if B_avg = 0.54 T.</p>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">Step 0 — Determine Number of Poles</h2>
+          <div class="formula">Ns = 120·f/p → for f=60 Hz, p=6: Ns = 120×60/6 = 1200 rpm</div>
+          <div class="formula">Slip s = (Ns−Nr)/Ns = (1200−1160)/1200 = 3.33% ✓ (reasonable)</div>
+          <div class="answer">✅ <strong class="text-white">p = 6 poles</strong>, Ns = <span class="result-val">1200 rpm</span>, s_fl = <span class="result-val">3.33%</span></div>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">(a) Number of Coils on Stator</h2>
+          <p class="text-xs text-slate-400 mb-1">For a standard double-layer winding, each slot contains 2 coil sides. Total coil sides = 2 × S. Each coil has 2 sides → coils = slots.</p>
+          <div class="formula">Number of coils = S = 90</div>
+          <div class="answer">✅ <span class="result-val text-lg" id="ans_a">90 coils</span></div>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">(b) Coils per Phase</h2>
+          <div class="formula">Coils/phase = S / m = 90 / 3 = 30</div>
+          <div class="answer">✅ <span class="result-val text-lg" id="ans_b">30 coils/phase</span></div>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">(c) Coils per Group</h2>
+          <p class="text-xs text-slate-400 mb-1">Each phase has one group per pole → groups per phase = p = 6. Alternatively: q = S/(p·m).</p>
+          <div class="formula">Coils/group = S / (p × m) = 90 / (6 × 3) = 90 / 18 = 5</div>
+          <div class="answer">✅ <span class="result-val text-lg" id="ans_c">5 coils/group</span> | Slot pitch angle α = 180°×p/S = <span class="result-val">12°</span></div>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">(d) Coil Pitch (Full Pitch = Pole Pitch)</h2>
+          <div class="formula">D = 20 in × 25.4 mm/in = 508 mm</div>
+          <div class="formula">τ_p = π·D / p = π × 508 / 6 = <span id="d_num">266.1</span> mm</div>
+          <div class="formula">Slot pitch τ_s = π·D / S = π × 508 / 90 = 17.74 mm</div>
+          <div class="formula">Full-pitch coil spans = S/p = 90/6 = 15 slots</div>
+          <div class="answer">✅ Coil pitch = <span class="result-val text-lg" id="ans_d">266.1 mm</span></div>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">(e) Area of One Pole</h2>
+          <div class="formula">L = 16 in × 25.4 mm/in = 406.4 mm = 0.4064 m</div>
+          <div class="formula">A_pole = τ_p × L = (π·D/p) × L</div>
+          <div class="formula">A_pole = 0.26598 m × 0.4064 m = 0.10808 m²</div>
+          <div class="answer">✅ A_pole = <span class="result-val text-lg" id="ans_e">0.1081 m²</span> = <span class="result-val" id="ans_e2">108,144 mm²</span></div>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">(f) Flux per Pole (B_avg = 0.54 T)</h2>
+          <div class="formula">Φ = B_avg × A_pole = 0.54 × 0.10808</div>
+          <div class="formula">Φ = 0.05836 Wb = 58.36 mWb</div>
+          <div class="answer">✅ Φ = <span class="result-val text-lg" id="ans_f">58.36 mWb</span></div>
+        </div>
+        <div class="card p-4 mb-3">
+          <h2 class="text-base font-bold text-sky-300 mb-2">Winding Factor</h2>
+          <div class="formula">α (slot angle) = 180°×p/S = 180×6/90 = 12° (electrical)</div>
+          <div class="formula">kd = sin(q·α/2) / (q·sin(α/2)) = sin(5×6°)/(5×sin(6°)) = sin30°/(5×0.10453) = 0.9567</div>
+          <div class="formula">kp = sin(90° × pitch/pole_pitch) = sin(90°) = 1.000 (full pitch)</div>
+          <div class="formula">kw = kd × kp = 0.9567 × 1.000 = 0.9567</div>
+          <div class="answer">✅ Winding factor k_w = <span class="result-val">0.9567</span></div>
+        </div>
+        <!-- Live sliders -->
+        <div class="card p-4">
+          <h2 class="text-base font-bold text-sky-300 mb-2">🎚️ Live Stator Calculator</h2>
+          <div class="space-y-2 text-sm">
+            <div><label class="text-slate-400">Slots S: <span id="sl_S_v">90</span></label><input type="range" id="sl_S" min="36" max="144" step="6" value="90" oninput="updateStator()"></div>
+            <div><label class="text-slate-400">Diameter D (mm): <span id="sl_D_v">508</span></label><input type="range" id="sl_D" min="200" max="800" step="10" value="508" oninput="updateStator()"></div>
+            <div><label class="text-slate-400">Length L (mm): <span id="sl_L_v">406</span></label><input type="range" id="sl_L" min="100" max="800" step="10" value="406" oninput="updateStator()"></div>
+            <div><label class="text-slate-400">B_avg (T): <span id="sl_B_v">0.54</span></label><input type="range" id="sl_B" min="0.2" max="1.0" step="0.01" value="0.54" oninput="updateStator()"></div>
+            <div><label class="text-slate-400">Poles p: <span id="sl_p_v">6</span></label>
+              <select id="sl_p" onchange="updateStator()" class="ml-2 text-xs">
+                <option value="2">2</option><option value="4">4</option><option value="6" selected>6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option>
+              </select>
+            </div>
+          </div>
+          <div id="live_stator" class="mt-3 grid grid-cols-2 gap-2 text-xs grid-kv"></div>
+        </div>
+      </div>
+      <!-- Right: stator cross section -->
+      <div class="card p-4 flex flex-col items-center">
+        <h2 class="text-base font-bold text-sky-300 mb-2 w-full">Stator Cross-Section (Slot Distribution)</h2>
+        <canvas id="statorCanvas" width="340" height="340"></canvas>
+        <p class="text-xs text-slate-400 mt-2">🔴 Phase A &nbsp; 🟢 Phase B &nbsp; 🔵 Phase C</p>
+        <div id="stator_info" class="mt-3 text-xs text-slate-300 w-full space-y-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 1: Parameters -->
+  <div id="tab1" class="tab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h2 class="text-base font-bold text-sky-300 mb-3">Motor Equivalent Circuit Parameters</h2>
+        <div id="param_sliders" class="space-y-3 text-sm"></div>
+      </div>
+      <div class="card p-4">
+        <h2 class="text-base font-bold text-sky-300 mb-3">Computed Electrical Results</h2>
+        <div id="param_results" class="space-y-2 text-sm grid-kv grid grid-cols-2 gap-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Torque-Speed -->
+  <div id="tab2" class="tab-content">
+    <div class="card p-4">
+      <div class="flex flex-wrap gap-2 mb-3 items-center">
+        <h2 class="text-base font-bold text-sky-300 flex-1">Torque-Speed Characteristics</h2>
+        <button onclick="renderTorqueChart()" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 rounded text-xs">▶ Refresh</button>
+        <button onclick="resetTorqueChart()" class="px-3 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs">↺ Reset</button>
+      </div>
+      <div class="ch"><canvas id="torqueChart"></canvas></div>
+      <p class="text-xs text-slate-400 mt-2">Simplified circuit (stator Z neglected): T = (3/ωs)·V₁²·(R₂/s)/[(R₂/s)²+X₂²]</p>
+    </div>
+  </div>
+
+  <!-- TAB 3: Fault Current -->
+  <div id="tab3" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-base font-bold text-sky-300 mb-3">Fault / Inrush Current Transient</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">V multiplier: <span id="fc_vm_v">1.0</span></label><input type="range" id="fc_vm" min="0.5" max="1.5" step="0.05" value="1.0" oninput="renderFaultChart()"></div>
+        <div><label class="text-slate-400">Angle φ (°): <span id="fc_phi_v">0</span></label><input type="range" id="fc_phi" min="0" max="90" step="5" value="0" oninput="renderFaultChart()"></div>
+        <div><label class="text-slate-400">X/R ratio: <span id="fc_xr_v">8</span></label><input type="range" id="fc_xr" min="2" max="30" step="1" value="8" oninput="renderFaultChart()"></div>
+        <div id="fault_stats" class="bg-slate-700 rounded p-2 text-xs"></div>
+      </div>
+      <div class="ch"><canvas id="faultChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Protection -->
+  <div id="tab4" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-base font-bold text-sky-300 mb-3">Protection Coordination — IEC Relay Curves</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">TMS: <span id="p_tms_v">0.3</span></label><input type="range" id="p_tms" min="0.05" max="1.0" step="0.05" value="0.3" oninput="renderProtChart()"></div>
+        <div><label class="text-slate-400">Is (×In): <span id="p_is_v">1.0</span></label><input type="range" id="p_is" min="0.5" max="3.0" step="0.1" value="1.0" oninput="renderProtChart()"></div>
+        <div><label class="text-slate-400">In (A): <span id="p_in_v">600</span></label><input type="range" id="p_in" min="100" max="2000" step="50" value="600" oninput="renderProtChart()"></div>
+        <div class="bg-slate-700 rounded p-2 text-xs"><p class="text-slate-300">NI: k=0.14, α=0.02</p><p class="text-slate-300">VI: k=13.5, α=1</p><p class="text-slate-300">EI: k=80, α=2</p></div>
+      </div>
+      <div class="ch"><canvas id="protChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TAB 5: Speed Controller -->
+  <div id="tab5" class="tab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h2 class="text-base font-bold text-sky-300 mb-3">PID Speed Controller + Step Load</h2>
+        <div class="space-y-2 text-sm mb-3">
+          <div><label class="text-slate-400">Kp: <span id="pid_kp_v">8</span></label><input type="range" id="pid_kp" min="0.1" max="60" step="0.1" value="8" oninput="renderPIDChart()"></div>
+          <div><label class="text-slate-400">Ki: <span id="pid_ki_v">1.0</span></label><input type="range" id="pid_ki" min="0.01" max="20" step="0.01" value="1.0" oninput="renderPIDChart()"></div>
+          <div><label class="text-slate-400">Kd: <span id="pid_kd_v">0.2</span></label><input type="range" id="pid_kd" min="0.001" max="5" step="0.001" value="0.2" oninput="renderPIDChart()"></div>
+          <div><label class="text-slate-400">Load step (%): <span id="pid_ls_v">50</span></label><input type="range" id="pid_ls" min="10" max="100" step="5" value="50" oninput="renderPIDChart()"></div>
+          <div><label class="text-slate-400">J (kg·m²): <span id="pid_j_v">50</span></label><input type="range" id="pid_j" min="5" max="300" step="5" value="50" oninput="renderPIDChart()"></div>
+        </div>
+        <div class="ch" style="height:250px"><canvas id="pidChart"></canvas></div>
+      </div>
+      <div class="card p-4">
+        <h2 class="text-base font-bold text-sky-300 mb-3">Fuzzy Logic Controller (Mamdani)</h2>
+        <p class="text-xs text-slate-400 mb-2">5 membership functions: NB, NM, ZO, PM, PB</p>
+        <div style="position:relative;height:140px"><canvas id="fuzzyMF"></canvas></div>
+        <div style="position:relative;height:140px;margin-top:8px"><canvas id="fuzzySpeed"></canvas></div>
+        <div id="fuzzy_table" class="mt-2 text-xs text-slate-300 overflow-x-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: Thermal -->
+  <div id="tab6" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-base font-bold text-sky-300 mb-3">Thermal Analysis — 2-Node RC Model</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">T_ambient (°C): <span id="th_ta_v">40</span></label><input type="range" id="th_ta" min="0" max="60" step="1" value="40" oninput="renderThermalChart()"></div>
+        <div><label class="text-slate-400">Load factor: <span id="th_lf_v">1.0</span></label><input type="range" id="th_lf" min="0.1" max="1.5" step="0.05" value="1.0" oninput="renderThermalChart()"></div>
+        <div><label class="text-slate-400">Rth1 (K/kW): <span id="th_r1_v">0.05</span></label><input type="range" id="th_r1" min="0.01" max="0.3" step="0.005" value="0.05" oninput="renderThermalChart()"></div>
+        <div><label class="text-slate-400">Rth2 (K/kW): <span id="th_r2_v">0.08</span></label><input type="range" id="th_r2" min="0.01" max="0.4" step="0.005" value="0.08" oninput="renderThermalChart()"></div>
+      </div>
+      <div class="ch"><canvas id="thermalChart"></canvas></div>
+      <p class="text-xs text-slate-400 mt-2">
+        <span style="color:#fbbf24">■ Class B: 130°C</span> &nbsp;
+        <span style="color:#f97316">■ Class F: 155°C</span> &nbsp;
+        <span style="color:#ef4444">■ Class H: 180°C</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- TAB 7: Economic -->
+  <div id="tab7" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-base font-bold text-sky-300 mb-3">Economic Analysis — Life Cycle Cost</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">Price ($/kWh): <span id="eco_p_v">0.12</span></label><input type="range" id="eco_p" min="0.05" max="0.50" step="0.01" value="0.12" oninput="renderEconChart()"></div>
+        <div><label class="text-slate-400">Hours/yr: <span id="eco_h_v">6000</span></label><input type="range" id="eco_h" min="1000" max="8760" step="100" value="6000" oninput="renderEconChart()"></div>
+        <div><label class="text-slate-400">Load factor: <span id="eco_lf_v">0.85</span></label><input type="range" id="eco_lf" min="0.3" max="1.0" step="0.05" value="0.85" oninput="renderEconChart()"></div>
+        <div><label class="text-slate-400">IE class eff (%): <span id="eco_ef_v">95.4</span></label><input type="range" id="eco_ef" min="88" max="97.5" step="0.1" value="95.4" oninput="renderEconChart()"></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="ch"><canvas id="econBar"></canvas></div>
+        <div class="ch"><canvas id="econLine"></canvas></div>
+      </div>
+      <div id="econ_summary" class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm grid-kv"></div>
+    </div>
+  </div>
+
+  <!-- TAB 8: Harmonics -->
+  <div id="tab8" class="tab-content">
+    <div class="card p-4">
+      <h2 class="text-base font-bold text-sky-300 mb-3">Harmonic Analysis &amp; Power Quality</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-sm">
+        <div><label class="text-slate-400">5th (%): <span id="h5_v">20</span></label><input type="range" id="h5" min="0" max="50" step="1" value="20" oninput="renderHarmonicCharts()"></div>
+        <div><label class="text-slate-400">7th (%): <span id="h7_v">14</span></label><input type="range" id="h7" min="0" max="40" step="1" value="14" oninput="renderHarmonicCharts()"></div>
+        <div><label class="text-slate-400">11th (%): <span id="h11_v">9</span></label><input type="range" id="h11" min="0" max="30" step="1" value="9" oninput="renderHarmonicCharts()"></div>
+        <div><label class="text-slate-400">13th (%): <span id="h13_v">7</span></label><input type="range" id="h13" min="0" max="25" step="1" value="7" oninput="renderHarmonicCharts()"></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="ch"><canvas id="harmWave"></canvas></div>
+        <div class="ch"><canvas id="harmSpec"></canvas></div>
+      </div>
+      <div id="harm_stats" class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm grid-kv"></div>
+    </div>
+  </div>
+
+  <!-- TAB 9: Summary -->
+  <div id="tab9" class="tab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4">
+        <h2 class="text-base font-bold text-sky-300 mb-3">Complete Results Summary</h2>
+        <div id="sum_grid" class="grid grid-cols-2 gap-2 text-sm grid-kv"></div>
+        <button onclick="window.print()" class="mt-3 px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded text-xs">🖨️ Print</button>
+      </div>
+      <div class="card p-4">
+        <h2 class="text-base font-bold text-sky-300 mb-3">Performance Radar</h2>
+        <div class="ch"><canvas id="radarChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div><!-- /container -->
+
+<script>
+// ─── GLOBAL STATE ──────────────────────────────────────────────────────────────
+const S0 = {
+  VL:575, f:60, poles:6, slots:90, D_mm:508, L_mm:406.4, B_avg:0.54,
+  R1:0.087, X1:0.302, R2:0.228, X2:0.302, Xm:13.08, slip_fl:0.0333
+};
+let MP = Object.assign({}, S0);
+const charts = {};
+
+function safeNum(v,dec=4){ return isFinite(v)?+v.toFixed(dec):0; }
+function deg2rad(d){ return d*Math.PI/180; }
+
+// ─── STATOR GEOMETRY ──────────────────────────────────────────────────────────
+function calcStator(s,D,L,B,p){
+  const m=3;
+  const coils = s;
+  const coils_ph = s/m;
+  const q = s/(p*m);
+  const tau_p = Math.PI*D/p;          // mm
+  const tau_s = Math.PI*D/s;          // mm
+  const A_pole = (tau_p/1000)*(L/1000); // m²
+  const flux = B*A_pole;               // Wb
+  const alpha_e = 180*p/s;            // electrical degrees per slot
+  const kd = Math.sin(q*deg2rad(alpha_e/2))/(q*Math.sin(deg2rad(alpha_e/2)));
+  const kp = Math.sin(Math.PI/2); // full pitch = 1
+  const kw = kd*kp;
+  return {coils,coils_ph,q,tau_p,tau_s,A_pole,flux,alpha_e,kd,kp,kw};
+}
+
+// ─── MOTOR ELECTRICAL CALC ────────────────────────────────────────────────────
+function calcMotor(p){
+  const V1 = p.VL/Math.sqrt(3);
+  const Ns = 120*p.f/p.poles;
+  const ws = 2*Math.PI*Ns/60;
+  const K  = 3/ws*V1*V1;
+  const torque = (s)=> s<1e-9?0: K*(p.R2/s)/((p.R2/s)**2+p.X2**2);
+  const T_st = torque(1);
+  const T_fl = torque(p.slip_fl);
+  const s_m  = p.R2/p.X2;
+  const T_max= K/(2*p.X2);
+  const Nfl  = Ns*(1-p.slip_fl);
+  const P_rated_kW = 600*0.7457;
+  const I_rated = P_rated_kW*1000/(Math.sqrt(3)*p.VL*0.87); // approx pf=0.87
+  const eff = 0.947; // approx IE3 for 600hp
+  return {V1,Ns,ws,T_st,T_fl,s_m,T_max,Nfl,I_rated,eff,torque};
+}
+
+// ─── STATOR CANVAS ────────────────────────────────────────────────────────────
+function drawStator(){
+  const canvas=document.getElementById('statorCanvas');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const cx=W/2, cy=H/2;
+  const Ro=W/2-8, Ri=Ro*0.65, Rs=Ri-14;
+  ctx.clearRect(0,0,W,H);
+  // outer ring
+  ctx.beginPath(); ctx.arc(cx,cy,Ro,0,2*Math.PI);
+  ctx.fillStyle='#1e3a5f'; ctx.fill();
+  ctx.strokeStyle='#38bdf8'; ctx.lineWidth=2; ctx.stroke();
+  // inner bore
+  ctx.beginPath(); ctx.arc(cx,cy,Rs,0,2*Math.PI);
+  ctx.fillStyle='#0f172a'; ctx.fill();
+  ctx.strokeStyle='#475569'; ctx.lineWidth=1; ctx.stroke();
+  const slots=parseInt(document.getElementById('sl_S').value)||90;
+  const poles=parseInt(document.getElementById('sl_p').value)||6;
+  const m=3;
+  const q=slots/(poles*m);
+  const phaseColors=['#ef4444','#22c55e','#3b82f6'];
+  for(let i=0;i<slots;i++){
+    const ang=2*Math.PI*i/slots - Math.PI/2;
+    // phase assignment: group phase
+    const group=Math.floor(i/q);
+    const phaseIdx=group%m;
+    const x1=cx+Ri*Math.cos(ang), y1=cy+Ri*Math.sin(ang);
+    const x2=cx+(Ri+12)*Math.cos(ang), y2=cy+(Ri+12)*Math.sin(ang);
+    ctx.beginPath();
+    ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+    ctx.strokeStyle=phaseColors[phaseIdx];
+    ctx.lineWidth=3; ctx.stroke();
+    // slot rect
+    const da=Math.PI/slots*0.6;
+    ctx.beginPath();
+    ctx.arc(cx,cy,Ri+6,ang-da,ang+da);
+    ctx.arc(cx,cy,Ri-6,ang+da,ang-da,true);
+    ctx.closePath();
+    ctx.fillStyle=phaseColors[phaseIdx]+'55';
+    ctx.fill();
+  }
+  // pole arcs
+  for(let i=0;i<poles;i++){
+    const ang=2*Math.PI*i/poles - Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,Rs-4,ang,ang+2*Math.PI/poles);
+    ctx.closePath();
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=0.5;
+    ctx.stroke();
+  }
+  // label
+  ctx.fillStyle='#94a3b8'; ctx.font='11px monospace'; ctx.textAlign='center';
+  ctx.fillText(`${slots} slots / ${poles} poles`,cx,cy+4);
+}
+
+// ─── UPDATE STATOR LIVE ────────────────────────────────────────────────────────
+function updateStator(){
+  const s=parseInt(document.getElementById('sl_S').value);
+  const D=parseFloat(document.getElementById('sl_D').value);
+  const L=parseFloat(document.getElementById('sl_L').value);
+  const B=parseFloat(document.getElementById('sl_B').value);
+  const p=parseInt(document.getElementById('sl_p').value);
+  document.getElementById('sl_S_v').textContent=s;
+  document.getElementById('sl_D_v').textContent=D;
+  document.getElementById('sl_L_v').textContent=L;
+  document.getElementById('sl_B_v').textContent=B.toFixed(2);
+  document.getElementById('sl_p_v').textContent=p;
+  const r=calcStator(s,D,L,B,p);
+  const div=document.getElementById('live_stator');
+  div.innerHTML=`
+    <div><span class="text-slate-400">Coils</span><br><span class="result-val">${r.coils}</span></div>
+    <div><span class="text-slate-400">Coils/phase</span><br><span class="result-val">${r.coils_ph}</span></div>
+    <div><span class="text-slate-400">Coils/group (q)</span><br><span class="result-val">${safeNum(r.q,2)}</span></div>
+    <div><span class="text-slate-400">Coil pitch τ_p</span><br><span class="result-val">${safeNum(r.tau_p,1)} mm</span></div>
+    <div><span class="text-slate-400">Slot pitch τ_s</span><br><span class="result-val">${safeNum(r.tau_s,2)} mm</span></div>
+    <div><span class="text-slate-400">A_pole</span><br><span class="result-val">${safeNum(r.A_pole*1e4,2)} cm²</span></div>
+    <div><span class="text-slate-400">Flux Φ</span><br><span class="result-val">${safeNum(r.flux*1000,2)} mWb</span></div>
+    <div><span class="text-slate-400">k_w</span><br><span class="result-val">${safeNum(r.kw,4)}</span></div>
+  `;
+  const info=document.getElementById('stator_info');
+  info.innerHTML=`
+    <p>Slot/pole/phase (q) = ${safeNum(r.q,1)} | Slot angle α = ${safeNum(r.alpha_e,1)}°</p>
+    <p>Distribution factor k_d = ${safeNum(r.kd,4)} | Pitch factor k_p = ${safeNum(r.kp,4)}</p>
+    <p>Winding factor k_w = <strong class="text-sky-400">${safeNum(r.kw,4)}</strong></p>
+  `;
+  drawStator();
+}
+
+// ─── TAB 1: Parameters ────────────────────────────────────────────────────────
+function renderParamTab(){
+  const defs=[
+    {id:'VL',  label:'V_L (V)',    min:300, max:800, step:5,   val:575},
+    {id:'f',   label:'f (Hz)',     min:50,  max:60,  step:10,  val:60},
+    {id:'poles',label:'Poles p',  min:2,   max:12,  step:2,   val:6},
+    {id:'R1',  label:'R₁ (Ω)',    min:0.001,max:1,  step:0.001,val:0.087},
+    {id:'X1',  label:'X₁ (Ω)',    min:0.01, max:3,  step:0.01, val:0.302},
+    {id:'R2',  label:'R₂ (Ω)',    min:0.001,max:1,  step:0.001,val:0.228},
+    {id:'X2',  label:'X₂ (Ω)',    min:0.01, max:3,  step:0.01, val:0.302},
+    {id:'Xm',  label:'X_m (Ω)',   min:1,   max:60,  step:0.1,  val:13.08},
+    {id:'slip_fl',label:'s_fl (%)',min:0.5, max:10,  step:0.1,  val:3.33},
+  ];
+  const div=document.getElementById('param_sliders');
+  div.innerHTML='';
+  defs.forEach(d=>{
+    div.innerHTML+=`<div><label class="text-slate-400">${d.label}: <span id="p_${d.id}_v">${d.val}</span></label>
+      <input type="range" id="p_${d.id}" min="${d.min}" max="${d.max}" step="${d.step}" value="${d.val}" oninput="updateParams()"></div>`;
+  });
+  updateParams();
+}
+
+function updateParams(){
+  const ids=['VL','f','poles','R1','X1','R2','X2','Xm','slip_fl'];
+  ids.forEach(id=>{
+    const el=document.getElementById('p_'+id);
+    if(!el)return;
+    MP[id]=parseFloat(el.value);
+    if(id==='slip_fl') MP.slip_fl=parseFloat(el.value)/100;
+    document.getElementById('p_'+id+'_v').textContent=el.value;
+  });
+  MP.poles=parseInt(document.getElementById('p_poles').value||6);
+  const r=calcMotor(MP);
+  const div=document.getElementById('param_results');
+  div.innerHTML=`
+    <div><span class="text-slate-400">V₁ (phase)</span><br><span class="result-val">${safeNum(r.V1,1)} V</span></div>
+    <div><span class="text-slate-400">N_s</span><br><span class="result-val">${safeNum(r.Ns,0)} rpm</span></div>
+    <div><span class="text-slate-400">ω_s</span><br><span class="result-val">${safeNum(r.ws,2)} rad/s</span></div>
+    <div><span class="text-slate-400">T_fl</span><br><span class="result-val">${safeNum(r.T_fl,1)} N·m</span></div>
+    <div><span class="text-slate-400">T_max</span><br><span class="result-val">${safeNum(r.T_max,1)} N·m</span></div>
+    <div><span class="text-slate-400">s_max</span><br><span class="result-val">${safeNum(r.s_m*100,2)} %</span></div>
+    <div><span class="text-slate-400">T_st</span><br><span class="result-val">${safeNum(r.T_st,1)} N·m</span></div>
+    <div><span class="text-slate-400">N_fl</span><br><span class="result-val">${safeNum(r.Nfl,0)} rpm</span></div>
+    <div><span class="text-slate-400">I_rated≈</span><br><span class="result-val">${safeNum(r.I_rated,0)} A</span></div>
+    <div><span class="text-slate-400">Efficiency≈</span><br><span class="result-val">${safeNum(r.eff*100,1)} %</span></div>
+    <div><span class="text-slate-400">T_st/T_max</span><br><span class="result-val">${safeNum(r.T_st/r.T_max,3)}</span></div>
+    <div><span class="text-slate-400">T_fl/T_max</span><br><span class="result-val">${safeNum(r.T_fl/r.T_max,3)}</span></div>
+  `;
+}
+
+// ─── TAB 2: Torque-Speed ──────────────────────────────────────────────────────
+function renderTorqueChart(){
+  try{
+    const r=calcMotor(MP);
+    const Ns=r.Ns;
+    const speeds=[], t100=[], t80=[], t60=[], tf60=[], tf80=[];
+    for(let n=0;n<=Ns;n+=Ns/200){
+      const s=(Ns-n)/Ns||1e-9;
+      speeds.push(safeNum(n,0));
+      const calcT=(v,s2)=>{
+        if(s2<1e-9)return 0;
+        const V1=v/Math.sqrt(3);
+        const K=3/r.ws*V1*V1;
+        return K*(MP.R2/s2)/((MP.R2/s2)**2+MP.X2**2);
+      };
+      t100.push(safeNum(calcT(MP.VL,s),1));
+      t80.push(safeNum(calcT(MP.VL*0.8,s),1));
+      t60.push(safeNum(calcT(MP.VL*0.6,s),1));
+      // VFD: scale V proportional to f
+      const f80=MP.f*0.8, Ns80=120*f80/MP.poles;
+      const s80=(Ns80-n)/Ns80; const s80c=s80<1e-9?1e-9:s80;
+      const ws80=2*Math.PI*Ns80/60;
+      const V80=MP.VL*0.8;
+      const K80=3/ws80*(V80/Math.sqrt(3))**2;
+      tf80.push(safeNum(n<=Ns80?K80*(MP.R2/s80c)/((MP.R2/s80c)**2+MP.X2**2):0,1));
+      const f60=MP.f*0.6, Ns60=120*f60/MP.poles;
+      const s60=(Ns60-n)/Ns60; const s60c=s60<1e-9?1e-9:s60;
+      const ws60=2*Math.PI*Ns60/60;
+      const V60=MP.VL*0.6;
+      const K60=3/ws60*(V60/Math.sqrt(3))**2;
+      tf60.push(safeNum(n<=Ns60?K60*(MP.R2/s60c)/((MP.R2/s60c)**2+MP.X2**2):0,1));
+    }
+    if(charts.torque){charts.torque.destroy();charts.torque=null;}
+    const ctx=document.getElementById('torqueChart').getContext('2d');
+    charts.torque=new Chart(ctx,{
+      type:'line',
+      data:{labels:speeds,datasets:[
+        {label:'100% V (grid)',data:t100,borderColor:'#38bdf8',borderWidth:2,pointRadius:0,tension:0.3},
+        {label:'80% V',data:t80,borderColor:'#fbbf24',borderWidth:1.5,pointRadius:0,tension:0.3,borderDash:[4,3]},
+        {label:'60% V',data:t60,borderColor:'#f97316',borderWidth:1.5,pointRadius:0,tension:0.3,borderDash:[2,3]},
+        {label:'VFD 80% f',data:tf80,borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,tension:0.3,borderDash:[6,3]},
+        {label:'VFD 60% f',data:tf60,borderColor:'#34d399',borderWidth:1.5,pointRadius:0,tension:0.3,borderDash:[3,4]},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{color:'#cbd5e1',font:{size:11}}}},
+        scales:{
+          x:{title:{display:true,text:'Speed (rpm)',color:'#94a3b8'},ticks:{color:'#64748b',maxTicksLimit:10},grid:{color:'#1e293b'}},
+          y:{title:{display:true,text:'Torque (N·m)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}}
+        }}
+    });
+  }catch(e){console.error(e);}
+}
+function resetTorqueChart(){
+  MP=Object.assign({},S0);
+  renderTorqueChart();
+}
+
+// ─── TAB 3: Fault Current ─────────────────────────────────────────────────────
+function renderFaultChart(){
+  try{
+    const vm=parseFloat(document.getElementById('fc_vm').value);
+    const phi_deg=parseFloat(document.getElementById('fc_phi').value);
+    const xr=parseFloat(document.getElementById('fc_xr').value);
+    document.getElementById('fc_vm_v').textContent=vm.toFixed(2);
+    document.getElementById('fc_phi_v').textContent=phi_deg;
+    document.getElementById('fc_xr_v').textContent=xr;
+    const V1=MP.VL*vm/Math.sqrt(3);
+    const Z=MP.R2+Math.sqrt(MP.R1**2+MP.X1**2); // approx
+    const Ipk=V1*Math.sqrt(2)/Math.max(Math.abs(MP.X2),0.01);
+    const phi=deg2rad(phi_deg);
+    const w=2*Math.PI*MP.f;
+    const Tdc=xr/(2*Math.PI*MP.f);
+    const dt=1/(MP.f*200), tmax=10/MP.f;
+    const t=[], iac=[], idc=[], itot=[];
+    for(let ti=0;ti<=tmax;ti+=dt){
+      t.push(safeNum(ti*1000,2));
+      const ac=Ipk*(Math.sin(w*ti+phi)-Math.sin(phi)*Math.exp(-ti/Tdc));
+      const dc=-Ipk*Math.sin(phi)*Math.exp(-ti/Tdc);
+      iac.push(safeNum(ac,2));
+      idc.push(safeNum(dc,2));
+      itot.push(safeNum(ac+dc,2));
+    }
+    const ipeak=Math.max(...itot.map(Math.abs));
+    const irms=Math.sqrt(itot.reduce((a,v)=>a+v*v,0)/itot.length);
+    document.getElementById('fault_stats').innerHTML=`
+      <p class="text-slate-300">I_peak = <span class="result-val">${safeNum(ipeak,0)} A</span></p>
+      <p class="text-slate-300">I_rms ≈ <span class="result-val">${safeNum(irms,0)} A</span></p>
+      <p class="text-slate-300">X/R = <span class="result-val">${xr}</span></p>
+      <p class="text-slate-300">T_dc = <span class="result-val">${safeNum(Tdc*1000,1)} ms</span></p>`;
+    if(charts.fault){charts.fault.destroy();charts.fault=null;}
+    const ctx=document.getElementById('faultChart').getContext('2d');
+    charts.fault=new Chart(ctx,{
+      type:'line',
+      data:{labels:t,datasets:[
+        {label:'Total i(t)',data:itot,borderColor:'#ef4444',borderWidth:1.5,pointRadius:0},
+        {label:'AC component',data:iac,borderColor:'#38bdf8',borderWidth:1,pointRadius:0,borderDash:[4,3]},
+        {label:'DC offset',data:idc,borderColor:'#fbbf24',borderWidth:1,pointRadius:0,borderDash:[2,4]},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1',font:{size:11}}}},
+        scales:{
+          x:{title:{display:true,text:'Time (ms)',color:'#94a3b8'},ticks:{color:'#64748b',maxTicksLimit:12},grid:{color:'#1e293b'}},
+          y:{title:{display:true,text:'Current (A)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}}
+        }}
+    });
+  }catch(e){console.error(e);}
+}
+
+// ─── TAB 4: Protection ────────────────────────────────────────────────────────
+function renderProtChart(){
+  try{
+    const tms=parseFloat(document.getElementById('p_tms').value);
+    const Is=parseFloat(document.getElementById('p_is').value);
+    const In=parseFloat(document.getElementById('p_in').value);
+    document.getElementById('p_tms_v').textContent=tms;
+    document.getElementById('p_is_v').textContent=Is;
+    document.getElementById('p_in_v').textContent=In;
+    const curves=[
+      {label:'Normal Inverse',k:0.14,a:0.02,color:'#38bdf8'},
+      {label:'Very Inverse',k:13.5,a:1,color:'#fbbf24'},
+      {label:'Ext. Inverse',k:80,a:2,color:'#ef4444'},
+    ];
+    const Imults=[];
+    for(let m=1.1;m<=20;m*=1.1) Imults.push(safeNum(m,3));
+    const datasets=curves.map(c=>({
+      label:c.label,
+      data:Imults.map(m=>{const v=tms*c.k/(Math.pow(m/Is,c.a)-1); return(isFinite(v)&&v>0)?safeNum(v,4):null;}),
+      borderColor:c.color, borderWidth:2, pointRadius:0, tension:0.2
+    }));
+    if(charts.prot){charts.prot.destroy();charts.prot=null;}
+    const ctx=document.getElementById('protChart').getContext('2d');
+    charts.prot=new Chart(ctx,{
+      type:'line',
+      data:{labels:Imults,datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1',font:{size:11}}}},
+        scales:{
+          x:{type:'logarithmic',title:{display:true,text:'Current Multiple (I/In)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}},
+          y:{type:'logarithmic',title:{display:true,text:'Trip Time (s)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'},min:0.01,max:100}
+        }}
+    });
+  }catch(e){console.error(e);}
+}
+
+// ─── TAB 5: PID + Fuzzy ───────────────────────────────────────────────────────
+function renderPIDChart(){
+  try{
+    const Kp=parseFloat(document.getElementById('pid_kp').value);
+    const Ki=parseFloat(document.getElementById('pid_ki').value);
+    const Kd=parseFloat(document.getElementById('pid_kd').value);
+    const ls=parseFloat(document.getElementById('pid_ls').value)/100;
+    const J=parseFloat(document.getElementById('pid_j').value);
+    document.getElementById('pid_kp_v').textContent=Kp.toFixed(1);
+    document.getElementById('pid_ki_v').textContent=Ki.toFixed(2);
+    document.getElementById('pid_kd_v').textContent=Kd.toFixed(3);
+    document.getElementById('pid_ls_v').textContent=(ls*100).toFixed(0);
+    document.getElementById('pid_j_v').textContent=J;
+    const r=calcMotor(MP);
+    const Ns=r.Ns, ws=r.ws;
+    const dt=0.005, tmax=5;
+    const t=[], spd=[], ctrl=[];
+    let w=0, integral=0, prev_e=0, u=0;
+    const Tload_base=r.T_fl;
+    for(let ti=0;ti<=tmax;ti+=dt){
+      t.push(safeNum(ti,3));
+      const ref=ws;
+      const e=ref-w;
+      integral+=e*dt;
+      const deriv=(e-prev_e)/dt;
+      u=Math.min(Math.max(Kp*e+Ki*integral+Kd*deriv,0),3*r.T_max);
+      prev_e=e;
+      const Tload=(ti>=2)?Tload_base*(1+ls):Tload_base*0.2;
+      const dw=(u-Tload)/J;
+      w=Math.max(0,w+dw*dt);
+      spd.push(safeNum(w*60/(2*Math.PI),1));
+      ctrl.push(safeNum(u,1));
+    }
+    if(charts.pid){charts.pid.destroy();charts.pid=null;}
+    const ctx=document.getElementById('pidChart').getContext('2d');
+    charts.pid=new Chart(ctx,{
+      type:'line',
+      data:{labels:t,datasets:[
+        {label:'Speed (rpm)',data:spd,borderColor:'#38bdf8',borderWidth:1.5,pointRadius:0,yAxisID:'y1'},
+        {label:'Control signal (N·m)',data:ctrl,borderColor:'#fbbf24',borderWidth:1,pointRadius:0,borderDash:[3,3],yAxisID:'y2'},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1',font:{size:10}}}},
+        scales:{
+          x:{title:{display:true,text:'Time (s)',color:'#94a3b8'},ticks:{color:'#64748b',maxTicksLimit:10},grid:{color:'#1e293b'}},
+          y1:{position:'left',title:{display:true,text:'Speed (rpm)',color:'#38bdf8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}},
+          y2:{position:'right',title:{display:true,text:'Torque (N·m)',color:'#fbbf24'},ticks:{color:'#64748b'},grid:{display:false}}
+        }}
+    });
+    renderFuzzyCharts();
+  }catch(e){console.error(e);}
+}
+
+function renderFuzzyCharts(){
+  try{
+    const labels_x=[];
+    for(let x=-1;x<=1;x+=0.04) labels_x.push(safeNum(x,2));
+    const mf=(name,c,w)=> labels_x.map(x=>Math.max(0,1-Math.abs(x-c)/w));
+    const ds=[
+      {label:'NB',data:mf('NB',-1,0.4),borderColor:'#ef4444',borderWidth:1.5,pointRadius:0,fill:false},
+      {label:'NM',data:mf('NM',-0.5,0.4),borderColor:'#f97316',borderWidth:1.5,pointRadius:0,fill:false},
+      {label:'ZO',data:mf('ZO',0,0.4),borderColor:'#22c55e',borderWidth:1.5,pointRadius:0,fill:false},
+      {label:'PM',data:mf('PM',0.5,0.4),borderColor:'#3b82f6',borderWidth:1.5,pointRadius:0,fill:false},
+      {label:'PB',data:mf('PB',1,0.4),borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,fill:false},
+    ];
+    if(charts.fuzzyMF){charts.fuzzyMF.destroy();charts.fuzzyMF=null;}
+    const c1=document.getElementById('fuzzyMF').getContext('2d');
+    charts.fuzzyMF=new Chart(c1,{type:'line',data:{labels:labels_x,datasets:ds},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1',font:{size:9}},position:'right'}},
+        scales:{x:{ticks:{color:'#64748b',maxTicksLimit:6},grid:{color:'#1e293b'}},
+                y:{min:0,max:1,ticks:{color:'#64748b'},grid:{color:'#1e293b'}}}}});
+
+    // Fuzzy speed response (simplified: smoother than PID)
+    const Kp=parseFloat(document.getElementById('pid_kp').value);
+    const ls=parseFloat(document.getElementById('pid_ls').value)/100;
+    const J=parseFloat(document.getElementById('pid_j').value);
+    const r=calcMotor(MP);
+    const dt=0.005,tmax=5;
+    const tf=[],sf=[];
+    let wf=0,uf=0;
+    for(let ti=0;ti<=tmax;ti+=dt){
+      tf.push(safeNum(ti,3));
+      const e=(r.ws-wf)/r.ws; // normalized error
+      // fuzzy: map to output torque via center of gravity (simplified)
+      const out=Math.max(0,Math.min(3*r.T_max, Kp*e*r.T_max*2));
+      uf=out;
+      const Tload=(ti>=2)?r.T_fl*(1+ls):r.T_fl*0.2;
+      wf=Math.max(0,wf+(uf-Tload)/J*dt);
+      sf.push(safeNum(wf*60/(2*Math.PI),1));
+    }
+    if(charts.fuzzySpeed){charts.fuzzySpeed.destroy();charts.fuzzySpeed=null;}
+    const c2=document.getElementById('fuzzySpeed').getContext('2d');
+    charts.fuzzySpeed=new Chart(c2,{type:'line',data:{labels:tf,datasets:[
+      {label:'Fuzzy Speed (rpm)',data:sf,borderColor:'#34d399',borderWidth:1.5,pointRadius:0}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1',font:{size:10}}}},
+        scales:{x:{title:{display:true,text:'Time (s)',color:'#94a3b8'},ticks:{color:'#64748b',maxTicksLimit:10},grid:{color:'#1e293b'}},
+                y:{title:{display:true,text:'Speed (rpm)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}}}}});
+    // Rule table
+    document.getElementById('fuzzy_table').innerHTML=`<strong class="text-sky-400">Fuzzy Rule Base (error→output): </strong>NB→PB | NM→PM | ZO→ZO | PM→NM | PB→NB<br>Inference: Mamdani min-max, Defuzzification: CoG`;
+  }catch(e){console.error(e);}
+}
+
+// ─── TAB 6: Thermal ───────────────────────────────────────────────────────────
+function renderThermalChart(){
+  try{
+    const Ta=parseFloat(document.getElementById('th_ta').value);
+    const lf=parseFloat(document.getElementById('th_lf').value);
+    const Rth1=parseFloat(document.getElementById('th_r1').value);
+    const Rth2=parseFloat(document.getElementById('th_r2').value);
+    document.getElementById('th_ta_v').textContent=Ta;
+    document.getElementById('th_lf_v').textContent=lf.toFixed(2);
+    document.getElementById('th_r1_v').textContent=Rth1.toFixed(3);
+    document.getElementById('th_r2_v').textContent=Rth2.toFixed(3);
+    const P_rated=600*0.7457; // kW
+    const eff=0.947;
+    const Ploss=P_rated*(1-eff)/eff*lf*lf; // kW, losses scale as lf²
+    const Cth1=200, Cth2=400; // kJ/K
+    const dt=10, tmax=7200;
+    const t=[], Tw=[], Tf=[];
+    let tw=Ta, tf2=Ta;
+    for(let ti=0;ti<=tmax;ti+=dt){
+      t.push(safeNum(ti/60,1));
+      Tw.push(safeNum(tw,1));
+      Tf.push(safeNum(tf2,1));
+      const dTw=(Ploss-(tw-tf2)/Rth1)/Cth1*dt;
+      const dTf=((tw-tf2)/Rth1-(tf2-Ta)/Rth2)/Cth2*dt;
+      tw=Math.min(tw+dTw,250);
+      tf2=Math.min(tf2+dTf,200);
+    }
+    if(charts.thermal){charts.thermal.destroy();charts.thermal=null;}
+    const ctx=document.getElementById('thermalChart').getContext('2d');
+    charts.thermal=new Chart(ctx,{type:'line',
+      data:{labels:t,datasets:[
+        {label:'Winding Temp (°C)',data:Tw,borderColor:'#ef4444',borderWidth:2,pointRadius:0},
+        {label:'Frame Temp (°C)',data:Tf,borderColor:'#f97316',borderWidth:1.5,pointRadius:0,borderDash:[4,3]},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{labels:{color:'#cbd5e1',font:{size:11}}},
+          annotation:{annotations:{}}
+        },
+        scales:{
+          x:{title:{display:true,text:'Time (min)',color:'#94a3b8'},ticks:{color:'#64748b',maxTicksLimit:12},grid:{color:'#1e293b'}},
+          y:{title:{display:true,text:'Temperature (°C)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'},
+             suggestedMin:Ta-5,
+             afterDataLimits(scale){scale.max=Math.max(scale.max,190);}
+          }
+        }}
+    });
+  }catch(e){console.error(e);}
+}
+
+// ─── TAB 7: Economic ──────────────────────────────────────────────────────────
+function renderEconChart(){
+  try{
+    const price=parseFloat(document.getElementById('eco_p').value);
+    const hrs=parseFloat(document.getElementById('eco_h').value);
+    const lf=parseFloat(document.getElementById('eco_lf').value);
+    const eff_ie3=parseFloat(document.getElementById('eco_ef').value)/100;
+    document.getElementById('eco_p_v').textContent=price.toFixed(2);
+    document.getElementById('eco_h_v').textContent=hrs;
+    document.getElementById('eco_lf_v').textContent=lf.toFixed(2);
+    document.getElementById('eco_ef_v').textContent=(eff_ie3*100).toFixed(1);
+    const P_sh=600*0.7457*lf; // shaft kW at load factor
+    const eff_ie2=eff_ie3-0.015, eff_ie4=eff_ie3+0.008, eff_ie5=eff_ie3+0.015;
+    const pin=(eff)=>P_sh/eff;
+    const cost=(eff)=>pin(eff)*hrs*price;
+    const labels=['Std (IE2)','IE3','IE4','IE5'];
+    const effs=[eff_ie2,eff_ie3,eff_ie4,eff_ie5];
+    const costs=effs.map(cost);
+    const saving_ie4_vs_ie2=cost(eff_ie2)-cost(eff_ie4);
+    const co2=(eff)=>pin(eff)*hrs*0.4/1000; // tCO2/yr @0.4kgCO2/kWh
+    if(charts.econBar){charts.econBar.destroy();charts.econBar=null;}
+    const c1=document.getElementById('econBar').getContext('2d');
+    charts.econBar=new Chart(c1,{type:'bar',
+      data:{labels,datasets:[{label:'Annual Energy Cost ($)',data:costs.map(v=>safeNum(v,0)),
+        backgroundColor:['#ef4444','#fbbf24','#22c55e','#3b82f6']}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1'}}},
+        scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#1e293b'}},
+                y:{ticks:{color:'#64748b'},grid:{color:'#1e293b'}}}}});
+    const years=Array.from({length:10},(_,i)=>i+1);
+    const lccData=effs.map(eff=>years.map(yr=>safeNum(cost(eff)*yr,0)));
+    const colors=['#ef4444','#fbbf24','#22c55e','#3b82f6'];
+    if(charts.econLine){charts.econLine.destroy();charts.econLine=null;}
+    const c2=document.getElementById('econLine').getContext('2d');
+    charts.econLine=new Chart(c2,{type:'line',
+      data:{labels:years,datasets:labels.map((l,i)=>({label:l,data:lccData[i],borderColor:colors[i],borderWidth:2,pointRadius:2,fill:false}))},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1',font:{size:10}}}},
+        scales:{x:{title:{display:true,text:'Year',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}},
+                y:{title:{display:true,text:'Cumulative Cost ($)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}}}}});
+    document.getElementById('econ_summary').innerHTML=`
+      <div><span class="text-slate-400">IE3 annual cost</span><br><span class="result-val">$${safeNum(costs[1],0)}</span></div>
+      <div><span class="text-slate-400">Saving IE4 vs IE2</span><br><span class="result-val">$${safeNum(saving_ie4_vs_ie2,0)}/yr</span></div>
+      <div><span class="text-slate-400">IE3 CO₂/yr</span><br><span class="result-val">${safeNum(co2(eff_ie3),1)} tCO₂</span></div>
+      <div><span class="text-slate-400">VFD 30% load-red saving</span><br><span class="result-val">~${safeNum((1-0.3**3)*100,0)}% energy</span></div>
+    `;
+  }catch(e){console.error(e);}
+}
+
+// ─── TAB 8: Harmonics ────────────────────────────────────────────────────────
+function renderHarmonicCharts(){
+  try{
+    const h5=parseFloat(document.getElementById('h5').value)/100;
+    const h7=parseFloat(document.getElementById('h7').value)/100;
+    const h11=parseFloat(document.getElementById('h11').value)/100;
+    const h13=parseFloat(document.getElementById('h13').value)/100;
+    document.getElementById('h5_v').textContent=(h5*100).toFixed(0);
+    document.getElementById('h7_v').textContent=(h7*100).toFixed(0);
+    document.getElementById('h11_v').textContent=(h11*100).toFixed(0);
+    document.getElementById('h13_v').textContent=(h13*100).toFixed(0);
+    const N=400, T=1/MP.f;
+    const t=[], wave=[];
+    for(let i=0;i<N;i++){
+      const ti=i/N*2*T;
+      t.push(safeNum(ti*1000,3));
+      wave.push(safeNum(Math.sin(2*Math.PI*MP.f*ti)+
+        h5*Math.sin(2*Math.PI*5*MP.f*ti)+
+        h7*Math.sin(2*Math.PI*7*MP.f*ti)+
+        h11*Math.sin(2*Math.PI*11*MP.f*ti)+
+        h13*Math.sin(2*Math.PI*13*MP.f*ti),4));
+    }
+    if(charts.harmWave){charts.harmWave.destroy();charts.harmWave=null;}
+    const c1=document.getElementById('harmWave').getContext('2d');
+    charts.harmWave=new Chart(c1,{type:'line',
+      data:{labels:t,datasets:[{label:'Current waveform',data:wave,borderColor:'#38bdf8',borderWidth:1.5,pointRadius:0}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1'}}},
+        scales:{x:{title:{display:true,text:'Time (ms)',color:'#94a3b8'},ticks:{color:'#64748b',maxTicksLimit:10},grid:{color:'#1e293b'}},
+                y:{title:{display:true,text:'Current (pu)',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}}}}});
+    const thd=Math.sqrt(h5**2+h7**2+h11**2+h13**2)*100;
+    if(charts.harmSpec){charts.harmSpec.destroy();charts.harmSpec=null;}
+    const c2=document.getElementById('harmSpec').getContext('2d');
+    charts.harmSpec=new Chart(c2,{type:'bar',
+      data:{labels:['1st (fund)','5th','7th','11th','13th'],
+        datasets:[{label:'Harmonic Magnitude (%)',data:[100,h5*100,h7*100,h11*100,h13*100],
+          backgroundColor:['#38bdf8','#ef4444','#f97316','#fbbf24','#a78bfa']}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1'}}},
+        scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'#1e293b'}},
+                y:{title:{display:true,text:'% of fundamental',color:'#94a3b8'},ticks:{color:'#64748b'},grid:{color:'#1e293b'}}}}});
+    const dpf=Math.cos(Math.atan(h5+h7));
+    const tpf=dpf/Math.sqrt(1+thd/100*thd/100);
+    document.getElementById('harm_stats').innerHTML=`
+      <div><span class="text-slate-400">THD_I</span><br><span class="result-val">${safeNum(thd,1)}%</span></div>
+      <div><span class="text-slate-400">Disp. PF (DPF)</span><br><span class="result-val">${safeNum(dpf,3)}</span></div>
+      <div><span class="text-slate-400">True PF</span><br><span class="result-val">${safeNum(tpf,3)}</span></div>
+      <div><span class="text-slate-400">IEEE 519 limit (THD%)</span><br><span class="result-val ${thd<=8?'text-green-400':'text-red-400'}">${thd<=8?'✅ <8%':'⚠️ >8%'}</span></div>
+    `;
+  }catch(e){console.error(e);}
+}
+
+// ─── TAB 9: Summary ───────────────────────────────────────────────────────────
+function renderSummaryTab(){
+  try{
+    const r=calcMotor(MP);
+    const st=calcStator(90,508,406.4,0.54,6);
+    document.getElementById('sum_grid').innerHTML=`
+      <div><span class="text-slate-400">Rating</span><br><span class="result-val">600 hp | 447.6 kW</span></div>
+      <div><span class="text-slate-400">Voltage</span><br><span class="result-val">575 V (Δ/Y)</span></div>
+      <div><span class="text-slate-400">Frequency</span><br><span class="result-val">60 Hz</span></div>
+      <div><span class="text-slate-400">Rated speed</span><br><span class="result-val">1160 rpm</span></div>
+      <div><span class="text-slate-400">Sync speed Ns</span><br><span class="result-val">1200 rpm</span></div>
+      <div><span class="text-slate-400">Poles p</span><br><span class="result-val">6</span></div>
+      <div><span class="text-slate-400">Full-load slip</span><br><span class="result-val">3.33%</span></div>
+      <div><span class="text-slate-400">Stator slots S</span><br><span class="result-val">90</span></div>
+      <div><span class="text-slate-400">(a) Coils total</span><br><span class="result-val">${st.coils}</span></div>
+      <div><span class="text-slate-400">(b) Coils/phase</span><br><span class="result-val">${st.coils_ph}</span></div>
+      <div><span class="text-slate-400">(c) Coils/group q</span><br><span class="result-val">${st.q}</span></div>
+      <div><span class="text-slate-400">(d) Coil pitch τ_p</span><br><span class="result-val">${safeNum(st.tau_p,1)} mm</span></div>
+      <div><span class="text-slate-400">(e) A_pole</span><br><span class="result-val">${safeNum(st.A_pole*1e4,2)} cm²</span></div>
+      <div><span class="text-slate-400">(f) Flux Φ</span><br><span class="result-val">${safeNum(st.flux*1000,2)} mWb</span></div>
+      <div><span class="text-slate-400">T_fl</span><br><span class="result-val">${safeNum(r.T_fl,0)} N·m</span></div>
+      <div><span class="text-slate-400">T_max</span><br><span class="result-val">${safeNum(r.T_max,0)} N·m</span></div>
+      <div><span class="text-slate-400">Winding factor k_w</span><br><span class="result-val">${safeNum(st.kw,4)}</span></div>
+      <div><span class="text-slate-400">I_rated≈</span><br><span class="result-val">${safeNum(r.I_rated,0)} A</span></div>
+    `;
+    if(charts.radar){charts.radar.destroy();charts.radar=null;}
+    const ctx=document.getElementById('radarChart').getContext('2d');
+    charts.radar=new Chart(ctx,{type:'radar',
+      data:{labels:['Efficiency','Power Factor','Torque Density','Thermal Margin','Winding Factor','Protection','Speed Regulation'],
+        datasets:[{label:'600 HP Motor',data:[94.7,87,78,72,95.7,85,96.7],
+          backgroundColor:'rgba(14,165,233,0.2)',borderColor:'#0ea5e9',pointBackgroundColor:'#38bdf8',borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cbd5e1'}}},
+        scales:{r:{min:0,max:100,ticks:{color:'#64748b',stepSize:20},grid:{color:'#334155'},pointLabels:{color:'#94a3b8',font:{size:11}}}}}});
+  }catch(e){console.error(e);}
+}
+
+// ─── TAB SWITCHING ────────────────────────────────────────────────────────────
+const tabRenders=[null,renderParamTab,renderTorqueChart,renderFaultChart,renderProtChart,
+                  renderPIDChart,renderThermalChart,renderEconChart,renderHarmonicCharts,renderSummaryTab];
+function switchTab(n){
+  document.querySelectorAll('.tab-content').forEach((el,i)=>el.classList.toggle('active',i===n));
+  document.querySelectorAll('.tab-btn').forEach((el,i)=>el.classList.toggle('active',i===n));
+  if(tabRenders[n]) try{tabRenders[n]();}catch(e){console.error(e);}
+}
+
+// ─── LIVE TORQUE CALC (Tab 0) ─────────────────────────────────────────────────
+function calcLiveTorque(){
+  const r=calcMotor(MP);
+  const s=parseFloat(document.getElementById('t0_slip').value);
+  document.getElementById('t0_slip_v').textContent=s.toFixed(3);
+  document.getElementById('t0_torque').textContent='T = '+safeNum(r.torque(s),1)+' N·m';
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  updateStator();
+});
+</script>
+
+<!-- Live torque slider (Tab 0 bottom) -->
+<script>
+// append live slider to tab0 dynamically after load
+window.addEventListener('DOMContentLoaded',()=>{
+  const t0=document.getElementById('tab0');
+  const div=document.createElement('div');
+  div.className='card p-4 mt-4';
+  div.innerHTML=`<h3 class="font-bold text-sky-300 mb-2 text-sm">🎚️ Live Slip → Torque</h3>
+    <div class="flex items-center gap-4 text-sm">
+      <label class="text-slate-400 w-36">Slip s = <span id="t0_slip_v">0.033</span></label>
+      <input type="range" id="t0_slip" min="0.001" max="1" step="0.001" value="0.033" class="flex-1" oninput="calcLiveTorque()">
+      <span class="text-sky-400 font-bold w-48" id="t0_torque">T = — N·m</span>
+    </div>`;
+  t0.appendChild(div);
+  calcLiveTorque();
+});
+</script>
+</body>
+</html>
