@@ -135,7 +135,9 @@ class DFIMApp:
         VL   = float(self.VL.get())
         f_s  = max(float(self.f_s.get()), 1.0)
         f_r  = max(float(self.f_r.get()), 0.1)
-        pol  = max(int(round(float(self.poles.get()))), 2)
+        # Poles must be a positive even integer (2, 4, 6, …)
+        _pol_raw = max(int(round(float(self.poles.get()))), 2)
+        pol  = _pol_raw if _pol_raw % 2 == 0 else _pol_raw + 1
         R1   = max(float(self.R1.get()), 1e-6)
         X1   = max(float(self.X1.get()), 1e-6)
         R2   = max(float(self.R2.get()), 1e-6)
@@ -622,7 +624,7 @@ class DFIMApp:
         I_rms   = V1 / abs(Z_sub)
         I_peak  = I_rms * np.sqrt(2.0)
         XR      = Xtot / max(Rtot, 1e-9)
-        tau_dc  = Xtot / max(w * Rtot, 1e-9)        # DC-offset time constant
+        tau_dc  = Xtot / max(w * Rtot, 1e-9)  # L/R where L = X/ω → τ = X/(ωR)
 
         # Worst-case inception angle for maximum asymmetry
         alpha   = np.arctan2(Xtot, Rtot)             # = arctan(X/R)
@@ -899,8 +901,9 @@ class DFIMApp:
             prev_err = err
             u_arr[i] = u
 
-            # Effective slip: controller nudges slip around operating point
-            # Positive u → increase Te (reduce effective R2/s)
+            # Effective slip: controller nudges slip around operating point.
+            # The gain 2e-5 converts the dimensionless controller output u
+            # (scaled ~0-300 rpm range) into a slip adjustment (0-0.006 pu).
             s_nom = float(np.clip((Ns - N[i - 1]) / (Ns + 1e-9), 1e-4, 0.99))
             s_eff = float(np.clip(s_nom - u * 2e-5, 1e-4, 0.99))
             denom = (R1 + R2 / s_eff) ** 2 + (X1 + X2) ** 2
@@ -997,8 +1000,13 @@ class DFIMApp:
 
         P_s   = 3.0 * R1 * I_op ** 2 * kl ** 2        # stator copper loss
         P_r   = 3.0 * R2 * I_op ** 2 * kl ** 2        # rotor copper loss
-        P_core = 0.015 * p["VL"] ** 2 / Xm             # iron loss approx
-        P_fw  = 0.005 * p["VL"] ** 2 / Xm              # friction & windage
+        # Empirical coefficients for auxiliary losses (per-unit of VL²/Xm):
+        #   0.015 ≈ core-loss coefficient (iron/hysteresis at rated flux)
+        #   0.005 ≈ friction & windage coefficient (mechanical no-load losses)
+        _CORE_COEFF = 0.015
+        _FW_COEFF   = 0.005
+        P_core = _CORE_COEFF * p["VL"] ** 2 / Xm
+        P_fw   = _FW_COEFF   * p["VL"] ** 2 / Xm
         P_tot = P_s + P_r + P_core + P_fw
 
         tau_th = Rth * Cth
@@ -1464,7 +1472,7 @@ class DFIMApp:
 # ─────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     root = tk.Tk()
-    app = DFIMApp(root)  # noqa: F841
+    root.app = DFIMApp(root)   # keep reference to prevent garbage collection
     root.mainloop()
 
 
