@@ -43,18 +43,28 @@ FW_THICK_DEF = 7.875   # flywheel thickness (in)
 STEEL_DENSITY_LB_IN3 = 0.2836   # lb/in³
 
 # ─── Physical / model constants ───────────────────────────────────────────────
-# Solid disk: I = ½·m·r²  →  WK² = ½·W·r²  (W in lb, r in ft → lb·ft²)
-DISK_INERTIA_COEFF   = 0.5       # solid-disk moment of inertia coefficient
+# WK² formula for a solid disk: WK² = ½·W·r²  (W in lbf, r in ft → lb·ft²).
+# This coefficient comes from the radius of gyration k = r/√2 for a solid disk,
+# giving WK² = W·k² = W·(r/√2)² = ½·W·r².
+DISK_INERTIA_COEFF   = 0.5       # WK² coefficient for a solid disk (= ½)
 LB_FT2_TO_KG_M2      = 0.042140  # unit conversion: 1 lb·ft² = 0.042140 kg·m²
 
-# Thermal model: assume steady-state temperature rise ≈ SS_TEMP_RISE_DEG °C
-# at full load for a TEFC motor (Class F insulation, ambient 40 °C).
-SS_TEMP_RISE_DEG     = 80.0   # °C — gives k_th = P_loss / SS_TEMP_RISE_DEG
+# Thermal model: steady-state temperature rise above ambient at rated full load
+# for a typical TEFC motor (Class F insulation, ambient 40 °C).  Used to
+# calibrate the thermal conductance: k_th = P_rated_loss / SS_TEMP_RISE_DEG.
+SS_TEMP_RISE_DEG     = 80.0   # °C — rated full-load temperature rise
 
-# Speed controller: scale factor mapping PID/fuzzy output u → synchronous
-# angular speed reference used to look up motor torque via the T(s) curve.
-# u is bounded ±CTRL_U_MAX; dividing by (ws × CTRL_U_MAX) maps u to [0, 1].
-CTRL_U_MAX           = 2000.0   # maximum control signal magnitude
+# Speed controller: scale factor mapping PID/fuzzy output u → motor slip.
+# u is clamped ±CTRL_U_MAX; dividing by (ws × CTRL_U_MAX) maps it to [0, 1].
+CTRL_U_MAX           = 2000.0   # maximum control signal magnitude (N·m scale)
+
+# Anti-windup limit for the PID integral term; set to 2.5× CTRL_U_MAX to allow
+# the integrator enough range to build up drive torque from rest.
+INTEGRAL_LIMIT       = 5000.0   # maximum absolute value of PID integral
+
+# Displacement power factor assumed for Design D motor at rated load (typical
+# for high-resistance-rotor motors with relatively low magnetising current).
+DESIGN_D_DPF         = 0.85     # displacement power factor at rated load
 
 # Rough empirical coefficient for estimating rotor/frame inertia from HP:
 #   J_motor ≈ HP_INERTIA_COEFF × HP  [kg·m²]
@@ -699,7 +709,11 @@ class DesignDMotorSuite:
         w    = 2.0 * math.pi * freq
         Rf   = Zf / math.sqrt(1.0 + XR**2)
         Xf   = XR * Rf
-        tau  = Xf / (w * Rf) if Rf > 1e-12 else 0.05
+        # Default DC-offset time constant when resistance is negligible;
+        # 50 ms is a conservative value consistent with a typical X/R ratio of ~20
+        # at 60 Hz (τ = X/(ω·R) → if X/R = 20, τ = 20/(2π·60) ≈ 53 ms).
+        DC_TAU_DEFAULT = 0.05
+        tau  = Xf / (w * Rf) if Rf > 1e-12 else DC_TAU_DEFAULT
         I_pk = Vph * math.sqrt(2.0) / Zf
 
         t      = np.linspace(0.0, dur, 3000)
@@ -988,16 +1002,19 @@ class DesignDMotorSuite:
 
             if ctrl_type == 'PID':
                 integral += err * dt
-                integral  = max(min(integral, 5000.0), -5000.0)
+                integral  = max(min(integral, INTEGRAL_LIMIT), -INTEGRAL_LIMIT)
                 deriv = (err - prev_err) / dt if dt > 0 else 0.0
                 u     = Kp * err + Ki * integral + Kd * deriv
-                u     = max(min(u, 2000.0), -2000.0)
+                u     = max(min(u, CTRL_U_MAX), -CTRL_U_MAX)
                 prev_err = err
             else:
                 u = self._fuzzy_ctrl(err, omega_ref)
 
-            # Map u → slip: normalise by (ws × CTRL_U_MAX) so full u gives s≈1
-            slip_ctrl = max(min(abs(u) / (ws * CTRL_U_MAX), 0.999), 1e-4)
+            # Map u → slip: positive u accelerates (drive torque), negative
+            # reduces slip so the motor torque backs off.  Using the signed value
+            # means the controller can both boost and limit torque about the
+            # operating point.
+            slip_ctrl = max(min(u / (ws * CTRL_U_MAX), 0.999), 1e-4)
             T_em  = self._torque_at_slip(slip_ctrl)
             T_net = T_em - T_load
             alpha = T_net / J_tot
@@ -1440,7 +1457,7 @@ class DesignDMotorSuite:
 
         THD_I = math.sqrt(h5**2 + h7**2 + h11**2 + h13**2) * 100.0
         THD_V = THD_I * Zs
-        DPF   = 0.85
+        DPF   = DESIGN_D_DPF
         TPF   = DPF / math.sqrt(1.0 + (THD_I / 100.0)**2)
 
         # Waveform
