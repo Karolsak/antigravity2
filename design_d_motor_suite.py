@@ -42,6 +42,25 @@ FW_DIAM_DEF  = 31.5    # flywheel diameter (in)
 FW_THICK_DEF = 7.875   # flywheel thickness (in)
 STEEL_DENSITY_LB_IN3 = 0.2836   # lb/in³
 
+# ─── Physical / model constants ───────────────────────────────────────────────
+# Solid disk: I = ½·m·r²  →  WK² = ½·W·r²  (W in lb, r in ft → lb·ft²)
+DISK_INERTIA_COEFF   = 0.5       # solid-disk moment of inertia coefficient
+LB_FT2_TO_KG_M2      = 0.042140  # unit conversion: 1 lb·ft² = 0.042140 kg·m²
+
+# Thermal model: assume steady-state temperature rise ≈ SS_TEMP_RISE_DEG °C
+# at full load for a TEFC motor (Class F insulation, ambient 40 °C).
+SS_TEMP_RISE_DEG     = 80.0   # °C — gives k_th = P_loss / SS_TEMP_RISE_DEG
+
+# Speed controller: scale factor mapping PID/fuzzy output u → synchronous
+# angular speed reference used to look up motor torque via the T(s) curve.
+# u is bounded ±CTRL_U_MAX; dividing by (ws × CTRL_U_MAX) maps u to [0, 1].
+CTRL_U_MAX           = 2000.0   # maximum control signal magnitude
+
+# Rough empirical coefficient for estimating rotor/frame inertia from HP:
+#   J_motor ≈ HP_INERTIA_COEFF × HP  [kg·m²]
+# Derived from NEMA typical values for frame sizes in the 10–100 HP range.
+HP_INERTIA_COEFF     = 0.05
+
 DARK_BG  = '#1e1e2e'
 DARK_AX  = '#181825'
 CLR_TEXT = '#cdd6f4'
@@ -205,8 +224,8 @@ class DesignDMotorSuite:
         vol_in3   = math.pi * r_in**2 * t_in
         weight_lb = vol_in3 * STEEL_DENSITY_LB_IN3
         r_ft  = r_in / 12.0
-        WK2   = 0.5 * weight_lb * r_ft**2   # lb·ft²  (solid disk)
-        J_SI  = WK2 * 0.042140               # kg·m²
+        WK2   = DISK_INERTIA_COEFF * weight_lb * r_ft**2   # lb·ft²  (solid disk: ½Wr²)
+        J_SI  = WK2 * LB_FT2_TO_KG_M2                      # kg·m²
         return r_in, weight_lb, WK2, J_SI
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -938,7 +957,7 @@ class DesignDMotorSuite:
 
         _, _, _, J_SI = self._flywheel_calc()
         HP_now  = self.var_HP.get()
-        J_motor = HP_now * 0.05          # rough estimate kg·m²
+        J_motor = HP_now * HP_INERTIA_COEFF   # kg·m² — empirical estimate
         J_tot   = max(J_SI + J_motor, 0.1)
 
         Kp   = self.var_Kp.get()
@@ -977,8 +996,8 @@ class DesignDMotorSuite:
             else:
                 u = self._fuzzy_ctrl(err, omega_ref)
 
-            # Convert control signal to effective slip
-            slip_ctrl = max(min(abs(u) / (ws * 2000.0), 0.999), 1e-4)
+            # Map u → slip: normalise by (ws × CTRL_U_MAX) so full u gives s≈1
+            slip_ctrl = max(min(abs(u) / (ws * CTRL_U_MAX), 0.999), 1e-4)
             T_em  = self._torque_at_slip(slip_ctrl)
             T_net = T_em - T_load
             alpha = T_net / J_tot
@@ -1133,7 +1152,7 @@ class DesignDMotorSuite:
         theta_amb = self.var_theta_amb.get()
         tau_min   = self.var_tau_th.get()
         tau_s     = tau_min * 60.0
-        k_th      = P_loss / 80.0 if P_loss > 0 else 1.0   # W/°C → SS rise ≈ 80°C
+        k_th      = P_loss / SS_TEMP_RISE_DEG if P_loss > 0 else 1.0   # W/°C
         C_th      = k_th * tau_s
 
         theta_ss  = theta_amb + P_loss / k_th
